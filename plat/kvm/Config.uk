@@ -150,6 +150,14 @@ config VIRTIO_9P
        select LIBUKSGLIST
        help
               Virtio 9P driver.
+
+config VIRTIO_FS
+       bool "Virtio FS device"
+       imply VIRTIO_PCI if ARCH_X86_64
+       select VIRTIO_BUS
+       select LIBUKSGLIST
+       help
+              Virtio FS driver.
 endmenu
 
 config RTC_PL031

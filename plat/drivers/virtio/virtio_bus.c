@@ -128,6 +128,13 @@ static int virtio_device_reinit(struct virtio_dev *vdev)
 	return rc;
 }
 
+/**
+ * @brief finds and sets the matching driver, reinitilizes the device,
+ * initializes the virtqueue list, calls the driver add() (device) function
+ *
+ * @param vdev
+ * @return int
+ */
 int virtio_bus_register_device(struct virtio_dev *vdev)
 {
 	struct virtio_driver *drv = NULL;

@@ -13,6 +13,7 @@ $(eval $(call addplatlib_s,kvm,libkvmvirtio,$(CONFIG_VIRTIO_BUS)))
 $(eval $(call addplatlib_s,kvm,libkvmvirtionet,$(CONFIG_VIRTIO_NET)))
 $(eval $(call addplatlib_s,kvm,libkvmvirtioblk,$(CONFIG_VIRTIO_BLK)))
 $(eval $(call addplatlib_s,kvm,libkvmvirtio9p,$(CONFIG_VIRTIO_9P)))
+$(eval $(call addplatlib_s,kvm,libkvmvirtiofs,$(CONFIG_VIRTIO_FS)))
 $(eval $(call addplatlib_s,kvm,libkvmofw,$(CONFIG_LIBOFW)))
 $(eval $(call addplatlib_s,kvm,libkvmgic,$(CONFIG_LIBGIC)))
 $(eval $(call addplatlib_s,kvm,libkvmpl031,$(CONFIG_RTC_PL031)))
@@ -158,6 +159,8 @@ LIBKVMVIRTIO_SRCS-$(CONFIG_VIRTIO_BUS) +=\
 			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_ring.c
 LIBKVMVIRTIO_SRCS-$(CONFIG_VIRTIO_PCI) +=\
 			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_pci.c
+LIBKVMVIRTIO_SRCS-$(CONFIG_VIRTIO_PCI) +=\
+			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_pci_modern.c
 LIBKVMVIRTIO_SRCS-$(CONFIG_ARCH_ARM_64)	+=\
 			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_mmio.c
 ##
@@ -194,6 +197,18 @@ LIBKVMVIRTIO9P_ASINCLUDES-y   += -I$(UK_PLAT_DRIVERS_BASE)/include
 LIBKVMVIRTIO9P_CINCLUDES-y    += -I$(UK_PLAT_DRIVERS_BASE)/include
 LIBKVMVIRTIO9P_SRCS-y +=\
 			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_9p.c
+
+##
+## Virtio FS library definition
+##
+LIBKVMVIRTIOFS_ASINCLUDES-y   += -I$(LIBKVMPLAT_BASE)/include
+LIBKVMVIRTIOFS_CINCLUDES-y    += -I$(LIBKVMPLAT_BASE)/include
+LIBKVMVIRTIOFS_ASINCLUDES-y   += -I$(UK_PLAT_COMMON_BASE)/include
+LIBKVMVIRTIOFS_CINCLUDES-y    += -I$(UK_PLAT_COMMON_BASE)/include
+LIBKVMVIRTIOFS_ASINCLUDES-y   += -I$(UK_PLAT_DRIVERS_BASE)/include
+LIBKVMVIRTIOFS_CINCLUDES-y    += -I$(UK_PLAT_DRIVERS_BASE)/include
+LIBKVMVIRTIOFS_SRCS-y +=\
+			$(UK_PLAT_DRIVERS_BASE)/virtio/virtio_fs.c
 
 ##
 ## OFW library definitions

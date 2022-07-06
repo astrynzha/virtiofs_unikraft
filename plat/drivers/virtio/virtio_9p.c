@@ -70,6 +70,16 @@ struct virtio_9p_device {
 	__spinlock spinlock;
 };
 
+/*
+	In the list of initialized virtio 9p devies,
+	finds the device with `device_identifier` tag.
+	Saves the p9dev struct inside the 9p device, found in the list.
+	Saves the 9p device inside the p9dev.
+
+
+	p9dev is a structure, used inside unikraft to interface with
+	a 9P device. Defined in lib/uk9p
+*/
 static int virtio_9p_connect(struct uk_9pdev *p9dev,
 			     const char *device_identifier,
 			     const char *mount_args __unused)
@@ -77,6 +87,13 @@ static int virtio_9p_connect(struct uk_9pdev *p9dev,
 	struct virtio_9p_device *dev = NULL;
 	int rc = 0;
 	int found = 0;
+
+	/*
+	Look for dev with tag==device_identifier
+	virtio_9p_device_list is a list of uninitialized 9p devices.
+	`dev` with the needed tag is kept in the `dev` variable after
+	the loop.
+	 */
 
 	ukarch_spin_lock(&virtio_9p_device_list_lock);
 	uk_list_for_each_entry(dev, &virtio_9p_device_list, _list) {
@@ -113,6 +130,10 @@ out:
 	return rc;
 }
 
+/*
+	Removes p9dev from the 9p device, which it was connected to,
+	in the 9p-devices-list
+*/
 static int virtio_9p_disconnect(struct uk_9pdev *p9dev)
 {
 	struct virtio_9p_device *dev;
@@ -452,6 +473,15 @@ out_free:
 	goto out;
 }
 
+/**
+ * @brief gets the memory allocator, sets it into the 9p transport struct
+ * and registers this 9p transport at the uk_9pdev_trans_list (list of
+ * transports in the lib/uk9p/9pdev_trans.c)
+ *
+ *
+ * @param drv_allocator
+ * @return int
+ */
 static int virtio_9p_drv_init(struct uk_alloc *drv_allocator)
 {
 	int rc = 0;

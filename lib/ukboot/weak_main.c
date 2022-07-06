@@ -6,5 +6,6 @@
 int __weak main(int argc __unused, char *argv[] __unused)
 {
 	printf("weak main() called. Symbol was not replaced!\n");
+	while(1){}
 	return -EINVAL;
 }
