@@ -131,7 +131,20 @@ struct virtio_driver {
 };
 
 /**
- * The structure defines the virtio device.
+ * @brief Virtio device from the perspective of a virtio device
+ * driver (e.g. virtio_9p.c).
+ *
+ * Virtio device that a Virtio device driver gets to pass it as a parameter to
+ * the virtio_config_ops callback functions, so that a PCI driver (e.g.
+ * virtio_pci_modern.c) can identify the underlying device (e.g. virtio_pci_dev)
+ *
+ * This device representation is independent of transport (e.g. PCI/MMIO).
+ * All the information (e.g. features) is already parsed from the transport.
+ *
+ *
+ * TODOFS: think if this is usable
+ * for a modern device. Probably not, because it has some new features, like
+ * shared memory?
  */
 struct virtio_dev {
 	/* Feature bit describing the virtio device */
@@ -142,7 +155,7 @@ struct virtio_dev {
 	void *priv;
 	/* Virtio device identifier */
 	struct virtio_dev_id id;
-	/* List of the config operations */
+	/* List of the config operations. Operate on a specific transport. */
 	struct virtio_config_ops *cops;
 	/* Reference to the virtio driver for the device */
 	struct virtio_driver *vdrv;
@@ -154,6 +167,7 @@ struct virtio_dev {
  * Operation exported by the virtio device.
  */
 int virtio_bus_register_device(struct virtio_dev *vdev);
+int virtio_bus_register_modern_device(struct virtio_dev *vdev);
 void _virtio_bus_register_driver(struct virtio_driver *vdrv);
 
 /**

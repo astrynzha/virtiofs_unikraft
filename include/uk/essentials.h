@@ -296,7 +296,7 @@ extern "C" {
 
 /*
  * Given the pointer x to the member m of the struct s, return
- * a pointer to the containing structure.  When using GCC, we first
+ * a pointer to the containing structure s.  When using GCC, we first
  * assign pointer x to a local variable, to check that its type is
  * compatible with member m.
  */

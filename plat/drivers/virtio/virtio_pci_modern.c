@@ -32,7 +32,39 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
+ * Copyright (c) 2017, Bryan Venteicher <bryanv@FreeBSD.org>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice unmodified, this list of conditions, and the following
+ *    disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
+/* Driver for the modern VirtIO PCI interface. */
+
+#include "uk/assert.h"
+#include <stdint.h>
+#include <uk/list.h>
 #include <uk/config.h>
 #include <uk/arch/types.h>
 #include <errno.h>
@@ -45,23 +77,23 @@
 #include <virtio/virtio_bus.h>
 #include <virtio/virtqueue.h>
 #include <virtio/virtio_pci_modern.h>
-
-#define VENDOR_QUMRANET_VIRTIO           (0x1AF4)
-#define VIRTIO_PCI_MODERN_DEVICEID_START (0x1040)
+#include <pci/pci_bus.h>
 
 static struct uk_alloc *a;
 
+
 /**
- * The structure declares a pci device.
+ * TODOFS: think how to change this.
+ *
  */
-struct virtio_pci_dev {
+struct virtio_pci_modern_dev {
 	/* Virtio Device */
 	struct virtio_dev vdev;
-	/* Pci base address */
+	/* Address that lies in the I/O BAR0 */
 	__u64 pci_base_addr;
 	/* ISR Address Range */
 	__u64 pci_isr_addr;
-	/* Pci device information */
+	/* PCI device information */
 	struct pci_device *pdev;
 };
 
@@ -70,13 +102,14 @@ struct virtio_pci_dev {
  * @param vdev
  *	Reference to the virtio device.
  */
-#define to_virtiopcidev(vdev) \
-		__containerof(vdev, struct virtio_pci_dev, vdev)
+#define to_virtiopcimoderndev(vdev) \
+		__containerof(vdev, struct virtio_pci_modern_dev, vdev)
 
+// TODOFS: declare all functions at the beginning of the file
 /**
  * Configuration operations legacy functions (`virtio_config_ops`)
  */
-static void vpci_legacy_pci_dev_reset(struct virtio_dev *vdev);
+static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev);
 static int vpci_legacy_pci_config_set(struct virtio_dev *vdev, __u16 offset,
 				      const void *buf, __u32 len);
 static int vpci_legacy_pci_config_get(struct virtio_dev *vdev, __u16 offset,
@@ -105,19 +138,14 @@ static void vpci_legacy_vq_release(struct virtio_dev *vdev,
  */
 static int virtio_pci_handle(void *arg);
 static int vpci_legacy_notify(struct virtio_dev *vdev, __u16 queue_id);
-static int virtio_pci_legacy_add_dev(struct pci_device *pci_dev,
-				     struct virtio_pci_dev *vpci_dev);
-
-/**
- * Configuration operations modern functions (`virtio_config_ops`)
- */
-static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev);
+static int virtio_pci_modern_probe_configs(struct pci_device *pci_dev);
+static int virtio_pci_modern_add_dev(struct pci_device *pci_dev);
 
 /**
  * Configuration operations legacy PCI device.
  */
 static struct virtio_config_ops vpci_legacy_ops = {
-	.device_reset = vpci_legacy_pci_dev_reset,
+	.device_reset = vpci_modern_pci_dev_reset,
 	.config_get   = vpci_legacy_pci_config_get,
 	.config_set   = vpci_legacy_pci_config_set,
 	.features_get = vpci_legacy_pci_features_get,
@@ -129,37 +157,6 @@ static struct virtio_config_ops vpci_legacy_ops = {
 	.vq_release   = vpci_legacy_vq_release,
 };
 
-// static struct virtio_config_ops_modern vpci_modern_ops = {
-// 	.device_reset = vpci_modern_pci_dev_reset,
-// };
-
-static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
-{
-	struct virtio_pci_dev *vpdev = NULL;
-	__u8 status;
-
-	UK_ASSERT(vdev);
-
-	vpdev = to_virtiopcidev(vdev);
-	/**
-	 * Resetting the device.
-	 */
-	virtio_cwrite8((void *) (unsigned long)vpdev->pci_base_addr,
-		       VIRTIO_PCI_STATUS, VIRTIO_CONFIG_STATUS_RESET);
-	/**
-	 * Waiting for the resetting the device. Find a better way
-	 * of doing this instead of repeating register read.
-	 *
-	 * NOTE! Spec (4.1.4.3.2)
-	 * Need to check if we have to wait for the reset to happen.
-	 */
-	do {
-		status = virtio_cread8(
-				(void *)(unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_STATUS);
-	} while (status != VIRTIO_CONFIG_STATUS_RESET);
-}
-
 /**
  * @brief function needed for setting up the virtqueues.
  * (Used in `vpci_legacy_vq_setup`)
@@ -170,10 +167,10 @@ static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
  */
 static int vpci_legacy_notify(struct virtio_dev *vdev, __u16 queue_id)
 {
-	struct virtio_pci_dev *vpdev;
+	struct virtio_pci_modern_dev *vpdev;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	virtio_cwrite16((void *)(unsigned long) vpdev->pci_base_addr,
 			VIRTIO_PCI_QUEUE_NOTIFY, queue_id);
 
@@ -182,7 +179,7 @@ static int vpci_legacy_notify(struct virtio_dev *vdev, __u16 queue_id)
 
 static int virtio_pci_handle(void *arg)
 {
-	struct virtio_pci_dev *d = (struct virtio_pci_dev *) arg;
+	struct virtio_pci_modern_dev *d = (struct virtio_pci_modern_dev *) arg;
 	uint8_t isr_status;
 	struct virtqueue *vq;
 	int rc = 0;
@@ -197,6 +194,7 @@ static int virtio_pci_handle(void *arg)
 			   d);
 	}
 
+	/* Queue has an interrupt */
 	if (isr_status & VIRTIO_PCI_ISR_HAS_INTR) {
 		/* calls a callback of a vq each and returns its result */
 		UK_TAILQ_FOREACH(vq, &d->vdev.vqs, next) {
@@ -223,14 +221,14 @@ static struct virtqueue *vpci_legacy_vq_setup(struct virtio_dev *vdev,
 					      virtqueue_callback_t callback,
 					      struct uk_alloc *a)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	struct virtqueue *vq;
 	__paddr_t addr;
 	long flags;
 
 	UK_ASSERT(vdev != NULL);
 
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	vq = virtqueue_create(queue_id, num_desc, VIRTIO_PCI_VRING_ALIGN,
 			      callback, vpci_legacy_notify, vdev, a);
 	if (PTRISERR(vq)) {
@@ -259,12 +257,12 @@ err_exit:
 static void vpci_legacy_vq_release(struct virtio_dev *vdev,
 		struct virtqueue *vq, struct uk_alloc *a)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	long flags;
 
 	UK_ASSERT(vq != NULL);
 	UK_ASSERT(a != NULL);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 
 	/* Select and deactivate the queue */
 	virtio_cwrite16((void *)(unsigned long)vpdev->pci_base_addr,
@@ -291,11 +289,11 @@ static void vpci_legacy_vq_release(struct virtio_dev *vdev,
 static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 				   __u16 *qdesc_size)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	int vq_cnt = 0, i = 0, rc = 0;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 
 	/* Registering the interrupt for the device. Function forwards the
 	   interrupt to each vq of the device */
@@ -333,10 +331,10 @@ static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 static int vpci_legacy_pci_config_set(struct virtio_dev *vdev, __u16 offset,
 				      const void *buf, __u32 len)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 
 	_virtio_cwrite_bytes((void *)(unsigned long)vpdev->pci_base_addr,
 			     VIRTIO_PCI_CONFIG_OFF + offset, buf, len, 1);
@@ -347,11 +345,11 @@ static int vpci_legacy_pci_config_set(struct virtio_dev *vdev, __u16 offset,
 static int vpci_legacy_pci_config_get(struct virtio_dev *vdev, __u16 offset,
 				      void *buf, __u32 len, __u8 type_len)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	int rc = 0;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 
 	/* Reading an entity less than 4 bytes are atomic */
 	if (type_len == len && type_len <= 4) {
@@ -372,42 +370,42 @@ static int vpci_legacy_pci_config_get(struct virtio_dev *vdev, __u16 offset,
 
 static __u8 vpci_legacy_pci_status_get(struct virtio_dev *vdev)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	return virtio_cread8((void *) (unsigned long) vpdev->pci_base_addr,
 			     VIRTIO_PCI_STATUS);
 }
 
 static void vpci_legacy_pci_status_set(struct virtio_dev *vdev, __u8 status)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	__u8 curr_status = 0;
 
 	/* Reset should be performed using the reset interface */
 	UK_ASSERT(vdev || status != VIRTIO_CONFIG_STATUS_RESET);
 
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	curr_status = vpci_legacy_pci_status_get(vdev);
 	status |= curr_status;
 	virtio_cwrite8((void *)(unsigned long) vpdev->pci_base_addr,
 		       VIRTIO_PCI_STATUS, status);
 }
 
-static void vpci_legacy_pci_dev_reset(struct virtio_dev *vdev)
+static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	__u8 status;
 
 	UK_ASSERT(vdev);
 
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	/**
 	 * Resetting the device.
 	 */
 	virtio_cwrite8((void *) (unsigned long)vpdev->pci_base_addr,
-		       VIRTIO_PCI_STATUS, VIRTIO_CONFIG_STATUS_RESET);
+		       20, VIRTIO_CONFIG_STATUS_RESET);
 	/**
 	 * Waiting for the resetting the device. Find a better way
 	 * of doing this instead of repeating register read.
@@ -418,18 +416,18 @@ static void vpci_legacy_pci_dev_reset(struct virtio_dev *vdev)
 	do {
 		status = virtio_cread8(
 				(void *)(unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_STATUS);
+				20);
 	} while (status != VIRTIO_CONFIG_STATUS_RESET);
 }
 
 static __u64 vpci_legacy_pci_features_get(struct virtio_dev *vdev)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 	__u64  features;
 
 	UK_ASSERT(vdev);
 
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	features = virtio_cread32((void *) (unsigned long)vpdev->pci_base_addr,
 				  VIRTIO_PCI_HOST_FEATURES);
 	return features;
@@ -444,38 +442,144 @@ static __u64 vpci_legacy_pci_features_get(struct virtio_dev *vdev)
 static void vpci_legacy_pci_features_set(struct virtio_dev *vdev,
 					 __u64 features)
 {
-	struct virtio_pci_dev *vpdev = NULL;
+	struct virtio_pci_modern_dev *vpdev = NULL;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcidev(vdev);
+	vpdev = to_virtiopcimoderndev(vdev);
 	/* Mask out features not supported by the virtqueue driver */
 	features = virtqueue_feature_negotiate(features);
 	virtio_cwrite32((void *) (unsigned long)vpdev->pci_base_addr,
 			VIRTIO_PCI_GUEST_FEATURES, (__u32)features);
 }
 
+
+
 /**
- * @brief continue the initialization of the `vpci_dev` struct
+ * @brief
  *
  * @param pci_dev
- * @param vpci_dev
+ * @param cfg_type
+ * @param [out] cap_offset
  * @return int
  */
-static int virtio_pci_legacy_add_dev(struct pci_device *pci_dev,
-				     struct virtio_pci_dev *vpci_dev)
+static int virtio_pci_modern_find_cap(struct pci_device *pci_dev,
+				      __u8 target_cfg_type, int *cap_offset)
 {
-	/* Check the valid range of the virtio legacy device */
-	// /*
-	if (pci_dev->id.device_id < 0x1000 || pci_dev->id.device_id > 0x103f) {
-		uk_pr_err("Invalid Virtio Devices %04x\n",
-			  pci_dev->id.device_id);
-		return -EINVAL;
+	int rc;
+	uint8_t curr_cap, cfg_type, bar;
+
+	UK_ASSERT(pci_dev);
+
+	for (rc = arch_pci_find_cap(pci_dev,
+				    VIRTIO_PCI_CAP_VENDOR_ID,
+				    &curr_cap);
+	     rc == 0;
+	     rc = arch_pci_find_next_cap(pci_dev,
+	     				 VIRTIO_PCI_CAP_VENDOR_ID,
+					 curr_cap,
+					 &curr_cap)) {
+
+		/* Spec: MUST ignore any vendor-specific capability structure
+		 * which has a reserved bar value. */
+		PCI_CONF_READ_OFFSET(uint8_t, &bar, pci_dev->config_addr,
+			VIRTIO_PCI_CAP_BAR_OFFSET(curr_cap),
+			VIRTIO_PCI_CAP_BAR_SHIFT,
+			VIRTIO_PCI_CAP_BAR_MASK);
+		if (bar >= VIRTIO_PCI_MODERN_MAX_BARS)
+			continue;
+
+		PCI_CONF_READ_OFFSET(uint8_t, &cfg_type, pci_dev->config_addr,
+			VIRTIO_PCI_CAP_CFG_TYPE_OFFSET(curr_cap),
+			VIRTIO_PCI_CAP_CFG_TYPE_SHIFT,
+			VIRTIO_PCI_CAP_CFG_TYPE_MASK);
+		if (cfg_type == target_cfg_type) {
+			if (cap_offset != NULL)
+				*cap_offset = curr_cap;
+			break;
+		}
 	}
-	// */
 
-	vpci_dev->pci_isr_addr = vpci_dev->pci_base_addr + VIRTIO_PCI_ISR;
+	return rc;
+}
 
-	/* Setting the configuration operation */
+static int virtio_pci_modern_probe_configs(struct pci_device *pci_dev)
+{
+	int rc = 0;
+
+	/*
+	 * These config capabilities must be present. The DEVICE_CFG
+	 * capability is only present if the device requires it.
+	 */
+
+	rc = virtio_pci_modern_find_cap(pci_dev,
+		VIRTIO_PCI_CAP_COMMON_CFG, NULL);
+	if (rc) {
+		uk_pr_err("cannot find COMMON_CFG capability\n");
+		goto exit;
+	}
+
+	rc = virtio_pci_modern_find_cap(pci_dev,
+		VIRTIO_PCI_CAP_NOTIFY_CFG, NULL);
+	if (rc) {
+		uk_pr_err("cannot find NOTIFY_CFG capability\n");
+		goto exit;
+	}
+
+	rc = virtio_pci_modern_find_cap(pci_dev,
+		VIRTIO_PCI_CAP_ISR_CFG, NULL);
+	if (rc) {
+		uk_pr_err("cannot find ISR_CFG capability\n");
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+/**
+ * @brief Partially initializes the virtio_pci_dev from the pci_dev,
+ * calls the `virtio_pci_legacy_add_dev` method and then registers the
+ * device on the virtio bus, using the `virtio_bus_register_device` method.
+ *
+ * @param pci_dev
+ * @return int
+ */
+static int virtio_pci_modern_add_dev(struct pci_device *pci_dev)
+{
+	struct virtio_pci_modern_dev *vpci_dev = NULL;
+	int rc = 0;
+
+	UK_ASSERT(pci_dev != NULL);
+
+	/* Checking if the device is a modern PCI device*/
+	if (pci_dev->id.vendor_id != VENDOR_QUMRANET_VIRTIO) {
+		uk_pr_err("Device %04x does not match the driver\n",
+			  pci_dev->id.device_id);
+		rc = -ENXIO;
+		goto exit;
+	}
+	if (pci_dev->id.device_id < VIRTIO_PCI_MODERN_ID_START ||
+	    pci_dev->id.device_id > VIRTIO_PCI_MODERN_ID_END) {
+		uk_pr_err("Virtio Device %04x does not match the driver\n",
+			  pci_dev->id.device_id);
+		rc = -ENXIO;
+		goto exit;
+	}
+	if (virtio_pci_modern_probe_configs(pci_dev) != 0) {
+		rc = -ENXIO;
+		goto exit;
+	}
+
+	vpci_dev = uk_malloc(a, sizeof(*vpci_dev));
+	if (!vpci_dev) {
+		uk_pr_err("Failed to allocate virtio-pci device\n");
+		return -ENOMEM;
+	}
+	/* Initializing the virtio pci device */
+	vpci_dev->pdev = pci_dev;
+	/* Initializing the virtio pci device */
+	vpci_dev->vdev.id.virtio_device_id =
+		pci_dev->id.device_id - VIRTIO_PCI_MODERN_ID_START;
 	vpci_dev->vdev.cops = &vpci_legacy_ops;
 
 	uk_pr_info("Added virtio-pci device %04x\n",
@@ -483,51 +587,7 @@ static int virtio_pci_legacy_add_dev(struct pci_device *pci_dev,
 	uk_pr_info("Added virtio-pci subsystem_device_id %04x\n",
 		   pci_dev->id.subsystem_device_id);
 
-	/* Mapping the virtio device identifier */
-	// TODO: not sure why subsystem_device_id was used?
-	// vpci_dev->vdev.id.virtio_device_id = pci_dev->id.subsystem_device_id;
-	vpci_dev->vdev.id.virtio_device_id = pci_dev->id.device_id;
-	return 0;
-}
-
-
-/**
- * @brief Partially initializes the virtio_pci_dev from teh pci_dev,
- * calls the `virtio_pci_legacy_add_dev` method and then registers the
- * device on the virtio bus, using the `virtio_bus_register_device` method.
- *
- * @param pci_dev
- * @return int
- */
-static int virtio_pci_add_dev(struct pci_device *pci_dev)
-{
-	struct virtio_pci_dev *vpci_dev = NULL;
-	int rc = 0;
-
-	UK_ASSERT(pci_dev != NULL);
-
-	vpci_dev = uk_malloc(a, sizeof(*vpci_dev));
-	if (!vpci_dev) {
-		uk_pr_err("Failed to allocate virtio-pci device\n");
-		return -ENOMEM;
-	}
-
-	/* Fetch PCI Device information */
-	vpci_dev->pdev = pci_dev;
-	vpci_dev->pci_base_addr = pci_dev->base;
-
-	/**
-	 * Probing for the legacy virtio device. We separate the legacy probing
-	 * with the possibility of supporting the modern PCI device in the
-	 * future.
-	 */
-	rc = virtio_pci_legacy_add_dev(pci_dev, vpci_dev);
-	if (rc != 0) {
-		uk_pr_err("Failed to probe (legacy) pci device: %d\n", rc);
-		goto free_pci_dev;
-	}
-
-	rc = virtio_bus_register_device(&vpci_dev->vdev);
+	rc = virtio_bus_register_modern_device(&vpci_dev->vdev);
 	if (rc != 0) {
 		uk_pr_err("Failed to register the virtio device: %d\n", rc);
 		goto free_pci_dev;
@@ -551,6 +611,7 @@ static int virtio_pci_drv_init(struct uk_alloc *drv_allocator)
 	return 0;
 }
 
+/* TODOFS: change to accept only modern device IDs */
 static const struct pci_device_id virtio_pci_ids[] = {
 	{PCI_DEVICE_ID(VENDOR_QUMRANET_VIRTIO, PCI_ANY_ID)},
 	/* End of Driver List */
@@ -560,6 +621,6 @@ static const struct pci_device_id virtio_pci_ids[] = {
 static struct pci_driver virtio_pci_drv = {
 	.device_ids = virtio_pci_ids,
 	.init = virtio_pci_drv_init,
-	.add_dev = virtio_pci_add_dev
+	.add_dev = virtio_pci_modern_add_dev
 };
 PCI_REGISTER_DRIVER(&virtio_pci_drv);

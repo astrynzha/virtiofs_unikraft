@@ -50,20 +50,44 @@
  * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Copyright (c) 2007 Yahoo!, Inc.
+ * All rights reserved.
+ * Written by: John Baldwin <jhb@FreeBSD.org>
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the author nor the names of any co-contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
 
+#include <stdint.h>
 #include <string.h>
 #include <uk/print.h>
 #include <uk/plat/common/cpu.h>
 #include <pci/pci_bus.h>
 
-#define PCI_CONF_READ(type, ret, a, s)					\
-	do {								\
-		uint32_t _conf_data;					\
-		outl(PCI_CONFIG_ADDR, (a) | PCI_CONF_##s);		\
-		_conf_data = ((inl(PCI_CONFIG_DATA) >> PCI_CONF_##s##_SHFT) \
-			      & PCI_CONF_##s##_MASK);			\
-		*(ret) = (type) _conf_data;				\
-	} while (0)
 
 static inline int pci_driver_add_device(struct pci_driver *drv,
 					struct pci_address *addr,
@@ -91,11 +115,13 @@ static inline int pci_driver_add_device(struct pci_driver *drv,
 	memcpy(&dev->addr, addr,  sizeof(dev->addr));
 	dev->drv = drv;
 
+	/* memory address of the device configuration space */
 	config_addr = (PCI_ENABLE_BIT)
 			| (addr->bus << PCI_BUS_SHIFT)
 			| (addr->devid << PCI_DEVICE_SHIFT);
-	PCI_CONF_READ(uint16_t, &dev->base, config_addr, IOBAR);
-	PCI_CONF_READ(uint8_t, &dev->irq, config_addr, IRQ);
+	dev->config_addr = config_addr;
+	PCI_CONF_READ_HEADER(uint16_t, &dev->base, config_addr, IOBAR);
+	PCI_CONF_READ_HEADER(uint8_t, &dev->irq, config_addr, IRQ);
 
 	ret = drv->add_dev(dev);
 	if (ret < 0) {
@@ -142,17 +168,17 @@ static int probe_function(uint32_t bus, uint32_t device, uint32_t function)
 	/* These I/O reads could be batched, but it practice this does not
 	 * appear to make the code more performant.
 	 */
-	PCI_CONF_READ(uint32_t, &devid.class_id,
+	PCI_CONF_READ_HEADER(uint32_t, &devid.class_id,
 			config_addr, CLASS_ID);
-	PCI_CONF_READ(uint32_t, &subclass,
+	PCI_CONF_READ_HEADER(uint32_t, &subclass,
 			config_addr, SUBCLASS_ID);
-	PCI_CONF_READ(uint16_t, &devid.vendor_id,
+	PCI_CONF_READ_HEADER(uint16_t, &devid.vendor_id,
 			config_addr, VENDOR_ID);
-	PCI_CONF_READ(uint16_t, &devid.device_id,
+	PCI_CONF_READ_HEADER(uint16_t, &devid.device_id,
 			config_addr, DEVICE_ID);
-	PCI_CONF_READ(uint16_t, &devid.subsystem_device_id,
+	PCI_CONF_READ_HEADER(uint16_t, &devid.subsystem_device_id,
 			config_addr, SUBSYS_ID);
-	PCI_CONF_READ(uint16_t, &devid.subsystem_vendor_id,
+	PCI_CONF_READ_HEADER(uint16_t, &devid.subsystem_vendor_id,
 			config_addr, SUBSYSVEN_ID);
 
 	uk_pr_info("PCI %02x:%02x.%02x (%04x %04x:%04x): ",
@@ -173,7 +199,7 @@ static int probe_function(uint32_t bus, uint32_t device, uint32_t function)
 
 	/* 0x06 = Bridge Device, 0x04 = PCI-to-PCI bridge */
 	if ((devid.class_id == 0x06) && (subclass == 0x04)) {
-		PCI_CONF_READ(uint32_t, &secondary_bus,
+		PCI_CONF_READ_HEADER(uint32_t, &secondary_bus,
 				config_addr, SECONDARY_BUS);
 		probe_bus(secondary_bus);
 	}
@@ -193,7 +219,7 @@ static void probe_bus(uint32_t bus)
 			continue;
 
 		config_addr = (PCI_ENABLE_BIT);
-		PCI_CONF_READ(uint32_t, &header_type,
+		PCI_CONF_READ_HEADER(uint32_t, &header_type,
 				config_addr, HEADER_TYPE);
 
 		/* Is this a multi-function device? */
@@ -215,7 +241,7 @@ int arch_pci_probe(struct uk_alloc *pha)
 	ph.a = pha;
 
 	config_addr = (PCI_ENABLE_BIT);
-	PCI_CONF_READ(uint32_t, &header_type,
+	PCI_CONF_READ_HEADER(uint32_t, &header_type,
 			config_addr, HEADER_TYPE);
 
 	if ((header_type & PCI_HEADER_TYPE_MSB_MASK) == 0) {
@@ -227,7 +253,7 @@ int arch_pci_probe(struct uk_alloc *pha)
 			config_addr = (PCI_ENABLE_BIT) |
 					(function << PCI_FUNCTION_SHIFT);
 
-			PCI_CONF_READ(uint32_t, &vendor_id,
+			PCI_CONF_READ_HEADER(uint32_t, &vendor_id,
 					config_addr, VENDOR_ID);
 
 			if (vendor_id != PCI_INVALID_ID)
@@ -238,4 +264,122 @@ int arch_pci_probe(struct uk_alloc *pha)
 	}
 
 	return 0;
+}
+
+int arch_pci_find_next_cap(struct pci_device *pci_dev, uint16_t vndr_id,
+				     uint8_t curr_cap, uint8_t *cap);
+/**
+ * @brief Finds the first capability with the given vendor ID.
+ *
+ * First checks if capabilites are enabled for the @p pci_dev device.
+ * Then looks for the first capability register in the capability linked list
+ * of this device that matches the given @p vndr_id vendor ID.
+ * Returns its offset from the beginning of the device configuration space.
+ *
+ * @param pci_dev pci device whose capabilities are being detected
+ * @param vndr_id vendor ID
+ * @param[out] cap address (offset) of the first found capability register
+ * @return int 0 if found, -1 if none found
+ */
+int arch_pci_find_cap(struct pci_device *pci_dev,
+				    uint16_t target_cap_vndr, uint8_t *cap)
+{
+	uint8_t hdr_type, cap_vndr, nxt_cap, cap_ptr_offset;
+	uint16_t status = 0;
+
+	UK_ASSERT(pci_dev);
+
+	/* Check if capabilities are enabled */
+	PCI_CONF_READ_HEADER(uint16_t, &status, pci_dev->config_addr, STATUS);
+	if (!(status & PCI_CONF_CAP_STATUS_BIT))
+		return -1;
+
+	/* Depending on the header type, the capability pointer is found at
+	 * different offsets
+	 */
+	PCI_CONF_READ_HEADER(uint8_t, &hdr_type, pci_dev->config_addr, HEADER_TYPE);
+	switch (hdr_type & PCI_CONF_HEADER_TYPE_HEADER_TYPE_MASK) {
+		case PCI_CONF_HEADER_TYPE_STANDARD:
+		case PCI_CONF_HEADER_TYPE_PCI_TO_PCI:
+			cap_ptr_offset = PCI_CONF_CAP_POINTER;
+			break;
+		case PCI_CONF_HEADER_TYPE_CARDBUS_BRIDGE:
+			cap_ptr_offset = PCI_CONF_CARDBUS_BRIDGE_CAP_LIST_PTR;
+			break;
+		default:
+			return -1;
+	}
+
+	PCI_CONF_READ_OFFSET(uint8_t, &nxt_cap,
+			pci_dev->config_addr, cap_ptr_offset,
+			PCI_CONF_CAP_POINTER_SHFT, PCI_CONF_CAP_POINTER_MASK);
+	if (nxt_cap == 0 || nxt_cap == PCI_HEADER_END)
+		return -1;
+
+	PCI_CONF_READ_OFFSET(uint8_t, &cap_vndr,
+		pci_dev->config_addr, nxt_cap,
+		PCI_CAP_VENDOR_ID_SHIFT,
+		PCI_CAP_VENDOR_ID_MASK);
+	if (cap_vndr == target_cap_vndr) {
+		goto cap_exit;
+	}
+	if(0 == arch_pci_find_next_cap(pci_dev, target_cap_vndr,
+					     nxt_cap, &nxt_cap)) {
+		goto cap_exit;
+	}
+
+	return -1;
+
+cap_exit:
+	if (cap != NULL)
+		*cap = nxt_cap;
+	return 0;
+}
+
+/**
+ * @brief Finds the next capability with the given vendor ID.
+ *
+ * Looks for the capability that comes after the @p curr_cap capability
+ * in the capability linked list of the device @p pci_dev and
+ * matches the given @p vndr_id vendor ID.
+ * Through @p cap, returns found capability's offset from the beginning of the
+ * device configuration space.
+ *
+ * @param pci_dev pci device whose capabilities are being detected
+ * @param vndr_id vendor ID
+ * @param curr_cap current capability. List traversal begins after this one.
+ * Cannot be 0.
+ * @param[out] cap address (offset) of the first found capability register
+ * @return int 0 if found, -1 if none found
+ */
+int arch_pci_find_next_cap(struct pci_device *pci_dev, uint16_t target_vndr,
+				     uint8_t curr_cap, uint8_t *cap)
+{
+	uint8_t vndr, nxt_cap;
+
+	UK_ASSERT(pci_dev);
+	UK_ASSERT(curr_cap != 0);
+
+	PCI_CONF_READ_OFFSET(uint8_t, &nxt_cap, pci_dev->config_addr,
+		curr_cap, PCI_CAP_NEXT_SHIFT, PCI_CAP_NEXT_MASK);
+	if (nxt_cap == 0 || nxt_cap == PCI_HEADER_END)
+		return -1;
+
+	do {
+		PCI_CONF_READ_OFFSET(uint8_t, &vndr,
+			pci_dev->config_addr, nxt_cap,
+			PCI_CAP_VENDOR_ID_SHIFT,
+			PCI_CAP_VENDOR_ID_MASK);
+		if (vndr == target_vndr) {
+			if (cap != NULL)
+				*cap = nxt_cap;
+			return 0;
+		}
+		PCI_CONF_READ_OFFSET(uint8_t, &nxt_cap,
+			pci_dev->config_addr, nxt_cap,
+			PCI_CAP_NEXT_SHIFT,
+			PCI_CAP_NEXT_MASK);
+	} while (nxt_cap != 0 && nxt_cap != PCI_HEADER_END);
+
+	return -1;
 }

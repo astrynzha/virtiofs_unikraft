@@ -71,7 +71,7 @@ struct virtio_9p_device {
 };
 
 /*
-	In the list of initialized virtio 9p devies,
+	In the list of initialized virtio 9p devices,
 	finds the device with `device_identifier` tag.
 	Saves the p9dev struct inside the 9p device, found in the list.
 	Saves the 9p device inside the p9dev.

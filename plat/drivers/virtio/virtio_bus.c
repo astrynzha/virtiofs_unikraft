@@ -129,7 +129,46 @@ static int virtio_device_reinit(struct virtio_dev *vdev)
 }
 
 /**
- * @brief finds and sets the matching driver, reinitilizes the device,
+ * Reinitialize the modern virtio device
+ * @param vdev
+ *	Reference to the modern virtio device.
+ */
+static int virtio_modern_device_reinit(struct virtio_dev *vdev)
+{
+	int rc = 0;
+
+	/**
+	 * Resetting the virtio device
+	 * This may not be necessary while initializing the device for the first
+	 * time.
+	 */
+	if (vdev->cops->device_reset) {
+		vdev->cops->device_reset(vdev);
+		/* Set the device status */
+		vdev->status = VIRTIO_DEV_RESET;
+	}
+	/* Acknowledge the virtio device */
+	rc = virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_ACK);
+	if (rc != 0) {
+		uk_pr_err("Failed to acknowledge the virtio device %p: %d\n",
+			  vdev, rc);
+		return rc;
+	}
+
+	/* Acknowledge the virtio driver */
+	rc = virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_DRIVER);
+	if (rc != 0) {
+		uk_pr_err("Failed to acknowledge the virtio driver %p: %d\n",
+			  vdev, rc);
+		return rc;
+	}
+	vdev->status = VIRTIO_DEV_INITIALIZED;
+	uk_pr_info("Virtio device %p initialized\n", vdev);
+	return rc;
+}
+
+/**
+ * @brief finds and sets the matching driver, reinitializes the device,
  * initializes the virtqueue list, calls the driver add() (device) function
  *
  * @param vdev
@@ -175,6 +214,57 @@ virtio_dev_fail_set:
 	 * We set the status to fail. We can ignore the exit status from the
 	 * status update.
 	 */
+	virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_FAIL);
+	goto exit;
+}
+
+/**
+ * @brief
+ *
+ * @param vdev
+ * @return int
+ */
+int virtio_bus_register_modern_device(struct virtio_dev *vdev)
+{
+	struct virtio_driver *drv = NULL;
+	int rc = 0;
+
+	UK_ASSERT(vdev);
+	/* Check for the dev with the driver list */
+	drv = find_match_drv(vdev);
+	if (!drv) {
+		uk_pr_err("Failed to find the driver for the virtio device %p (id:%"__PRIu16")\n",
+			  vdev, vdev->id.virtio_device_id);
+		return -EFAULT;
+	}
+	vdev->vdrv = drv;
+
+	/* Initialize the device */
+	rc = virtio_modern_device_reinit(vdev);
+	if (rc != 0) {
+		uk_pr_err("Failed to initialize the virtio device %p (id:%"__PRIu16": %d\n",
+			  vdev, vdev->id.virtio_device_id, rc);
+		return rc;
+	}
+
+	/* Initialize the virtqueue list */
+	UK_TAILQ_INIT(&vdev->vqs);
+
+	/* Calling the driver add device */
+	rc = drv->add_dev(vdev);
+	if (rc != 0) {
+		uk_pr_err("Failed to add the virtio device %p: %d\n", vdev, rc);
+		goto virtio_dev_fail_set;
+	}
+exit:
+	return rc;
+
+virtio_dev_fail_set:
+	/**
+	 * We set the status to fail. We can ignore the exit status from the
+	 * status update.
+	 */
+	// TODOFS: change the status update for a modern device
 	virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_FAIL);
 	goto exit;
 }
