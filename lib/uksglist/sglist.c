@@ -110,6 +110,9 @@ static inline int _sglist_append_range(struct uk_sglist *sg,
 /**
  * Worker routine to append a virtual address range (either kernel or
  * user) to a scatter/gather list.
+ * Slices the @p buf into segments and appends them to the @p sg list.
+ * @p buf is a virtual address of the buffer. This function translates each
+ * segment's virtual address into a physical one and saves them.
  */
 static inline int _sglist_append_buf(struct uk_sglist *sg, void *buf,
 				size_t len, size_t *donep)

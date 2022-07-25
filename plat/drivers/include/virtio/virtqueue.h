@@ -37,7 +37,6 @@
 #include <uk/list.h>
 #include <uk/sglist.h>
 #include <uk/arch/types.h>
-#include <virtio/virtio_ring.h>
 #include <virtio/virtio_config.h>
 
 #ifdef __cplusplus

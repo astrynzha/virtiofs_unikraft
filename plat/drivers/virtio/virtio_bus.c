@@ -103,14 +103,11 @@ static int virtio_device_reinit(struct virtio_dev *vdev)
 	 * This may not be necessary while initializing the device for the first
 	 * time.
 	 */
-	if (vdev->cops->device_reset) {
-		vdev->cops->device_reset(vdev);
-		/* Set the device status */
-		vdev->status = VIRTIO_DEV_RESET;
-	}
+	rc = virtio_dev_reset(vdev);
+	vdev->status = VIRTIO_DEV_RESET;
 	/* Acknowledge the virtio device */
 	rc = virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_ACK);
-	if (rc != 0) {
+	if (unlikely(rc != 0)) {
 		uk_pr_err("Failed to acknowledge the virtio device %p: %d\n",
 			  vdev, rc);
 		return rc;
@@ -118,7 +115,7 @@ static int virtio_device_reinit(struct virtio_dev *vdev)
 
 	/* Acknowledge the virtio driver */
 	rc = virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_DRIVER);
-	if (rc != 0) {
+	if (unlikely(rc != 0)) {
 		uk_pr_err("Failed to acknowledge the virtio driver %p: %d\n",
 			  vdev, rc);
 		return rc;
@@ -137,19 +134,11 @@ static int virtio_modern_device_reinit(struct virtio_dev *vdev)
 {
 	int rc = 0;
 
-	/**
-	 * Resetting the virtio device
-	 * This may not be necessary while initializing the device for the first
-	 * time.
-	 */
-	if (vdev->cops->device_reset) {
-		vdev->cops->device_reset(vdev);
-		/* Set the device status */
-		vdev->status = VIRTIO_DEV_RESET;
-	}
+	rc = virtio_dev_reset(vdev);
+	vdev->status = VIRTIO_DEV_RESET;
 	/* Acknowledge the virtio device */
 	rc = virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_ACK);
-	if (rc != 0) {
+	if (unlikely(rc != 0)) {
 		uk_pr_err("Failed to acknowledge the virtio device %p: %d\n",
 			  vdev, rc);
 		return rc;
@@ -163,7 +152,8 @@ static int virtio_modern_device_reinit(struct virtio_dev *vdev)
 		return rc;
 	}
 	vdev->status = VIRTIO_DEV_INITIALIZED;
-	uk_pr_info("Virtio device %p initialized\n", vdev);
+	uk_pr_info("Virtio device %" __PRIu16 " initialized\n",
+						vdev->id.virtio_device_id);
 	return rc;
 }
 

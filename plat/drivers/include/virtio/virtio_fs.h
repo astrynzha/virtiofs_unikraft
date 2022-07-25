@@ -36,6 +36,17 @@
 
 // #include <virtio/virtio_ids.h>
 // #include <virtio/virtio_config.h>
-// #include <virtio/virtio_types.h>
+#include <virtio/virtio_types.h>
+
+#define VIRTIO_FS_TAG_EXTRACT(tag_64, tag) 					\
+	do {								\
+		(tag) &=  (((typeof (features)) 1) << (bitpos));	\
+	} while (0)
+
+struct virtio_fs_config {
+	char tag[36];
+	__virtio_le32 num_request_queues;
+	__virtio_le32 notify_buf_size;
+};
 
 #endif /* __PLAT_DRV_VIRTIO_FS_H */

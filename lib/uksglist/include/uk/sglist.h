@@ -62,7 +62,7 @@ struct uk_sglist_seg {
 };
 
 struct uk_sglist {
-	struct uk_sglist_seg *sg_segs; /* Segment management */
+	struct uk_sglist_seg *sg_segs; /* Segment management. Is an array. */
 	__atomic    sg_refs; /* Reference count for the sg list */
 	uint16_t    sg_nseg; /* Number of segment in the sg list */
 	uint16_t    sg_maxseg; /* Maximum number of segment in the sg list */

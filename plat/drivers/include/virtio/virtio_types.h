@@ -46,6 +46,7 @@
 extern "C" {
 #endif /* __cplusplus  */
 
+// TODOFS: cleanup: use these?
 /**
  * __virtio{16,32,64} have the following meaning:
  * - __u{16,32,64} for virtio devices in legacy mode, accessed in native endian
@@ -54,6 +55,8 @@ extern "C" {
 typedef __u16 __virtio_le16;
 typedef __u32 __virtio_le32;
 typedef __u64 __virtio_le64;
+
+#define __PRIvirtio_le32 __PRIu32
 
 #ifdef __cplusplus
 }

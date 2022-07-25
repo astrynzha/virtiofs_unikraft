@@ -31,6 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <uk/config.h>
 #include <uk/arch/paging.h>
 
 #define PTE_RO		X86_PTE_PRESENT
@@ -111,38 +112,32 @@
 .endm
 
 /* x86-64 Boot Page Table
- *
- * 0x0000000000000000 - 0x0000000000000000 Mapping of first 4GB
- *
- * However, the first 1M is inaccessible, except for:
- * 0x0000000000009000 - 0x0000000000009fff Multiboot info @ 0x09500 (read-only)
- * 0x00000000000b8000 - 0x00000000000bffff VGA buffer (read+write)
- * 0x00000000000e0000 - 0x00000000000fffff BIOS memory (read-only)
- *
- * If paging is enabled:
- * 0xffffff8000000000 - 0xffffffffffffffff Mapping of first 512GB (for PTs)
+ * 0x0000000000000000 - 0x00000000ffffffff
  */
 .align 0x1000
-x86_bpt_pt0_0_0:
+x86_bpt_pt0_0_0: /* 4K pages */
 	pte_zero 0x0000000000000000, 0x009
-	pte_fill 0x0000000000009000, 0x008, PT_LVL, PTE_RO
+	pte_fill 0x0000000000009000, 0x008, PT_LVL, PTE_RO /* Multiboot info */
 	pte_zero 0x0000000000010000, 0x0a7
-	pte_fill 0x00000000000b8000, 0x008, PT_LVL, PTE_RW
+	pte_fill 0x00000000000b8000, 0x008, PT_LVL, PTE_RW /* VGA buffer */
 	pte_zero 0x00000000000c0000, 0x020
-	pte_fill 0x00000000000e0000, 0x020, PT_LVL, PTE_RO
+	pte_fill 0x00000000000e0000, 0x020, PT_LVL, PTE_RO /* BIOS memory */
 	pte_fill 0x0000000000100000, 0x100, PT_LVL, PTE_RW
 
 .align 0x1000
-x86_bpt_pd0_0:
+x86_bpt_pd0_0: /* 2M pages */
 	pte	 x86_bpt_pt0_0_0, PTE_RW
 	pte_fill 0x0000000000200000, 0x1ff, PD_LVL, PTE_RW
 
 .align 0x1000
-x86_bpt_pdpt0:
+x86_bpt_pdpt0: /* 1G pages */
 	pte	 x86_bpt_pd0_0, PTE_RW
-	pte_zero , 0x1ff
+	pte_fill 0x0000000040000000, 0x003, PDPT_LVL, PTE_RW
+	pte_zero 0x0000000100000000, 0x1fc
 
-/* Page table for 512 GiB direct-mapped physical memory */
+/* Page table for 512 GiB direct-mapped physical memory
+ * 0xffffff8000000000 - 0xffffffffffffffff
+ */
 #ifdef CONFIG_PAGING
 .align 0x1000
 x86_bpt_pdpt511:
@@ -150,7 +145,7 @@ x86_bpt_pdpt511:
 #endif /* CONFIG_PAGING */
 
 .align 0x1000
-x86_bpt_pml4:
+x86_bpt_pml4: /* 512G per pdpt */
 	pte	 x86_bpt_pdpt0  , PTE_RW
 	pte_zero , 0x1fe
 #ifdef CONFIG_PAGING

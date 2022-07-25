@@ -42,6 +42,7 @@
 
 #include <uk/arch/limits.h>
 #include <virtio/virtio_types.h>
+#include <virtio/virtqueue.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,6 +153,30 @@ struct vring {
  * NOTE: for VirtIO PCI, align is 4096.
  */
 
+struct virtqueue_desc_info {
+	void *cookie;
+	__u16 desc_count;
+};
+
+struct virtqueue_vring {
+	struct virtqueue vq;
+	/* Descriptor Ring */
+	struct vring vring;
+	/* Reference to the vring */
+	/* Memory address of the virtqueue */
+	void   *vring_mem;
+	/* Keep track of available descriptors */
+	__u16 desc_avail;
+	/* Index of the next available slot */
+	__u16 head_free_desc;
+	/* Index of the last used descriptor by the host */
+	__u16 last_used_desc_idx;
+	/* Cookie to identify driver buffer */
+	struct virtqueue_desc_info vq_info[];
+};
+
+#define to_virtqueue_vring(vq)			\
+	__containerof(vq, struct virtqueue_vring, vq)
 /**
  * We publish the used event index at the end of the available ring, and vice
  * versa. They are at the end for backwards compatibility.
@@ -159,6 +184,14 @@ struct vring {
 #define vring_used_event(vr) ((vr)->avail->ring[(vr)->num])
 #define vring_avail_event(vr) (*(__virtio16 *)&(vr)->used->ring[(vr)->num])
 
+/**
+ * @brief
+ *
+ * @param vr
+ * @param num
+ * @param p pointer to the virtqueue memory location
+ * @param align
+ */
 static inline void vring_init(struct vring *vr, unsigned int num, uint8_t *p,
 			      unsigned long align)
 {

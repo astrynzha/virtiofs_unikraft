@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Authors: Sharan Santhanam <sharan.santhanam@neclab.eu>,
- *	    Andrii Strynzha <a.strynzha@gmail.com>
+ * Authors: Andrii Strynzha <a.strynzha@gmail.com>,
+	    Sharan Santhanam <sharan.santhanam@neclab.eu>
  *
  * Copyright (c) 2018, NEC Europe Ltd., NEC Corporation. All rights reserved.
  * Copyright (c) 2019, Karlsruhe Institute of Technology (KIT).
@@ -63,6 +63,8 @@
 /* Driver for the modern VirtIO PCI interface. */
 
 #include "uk/assert.h"
+#include "uk/plat/bootstrap.h"
+#include "uk/thread.h"
 #include <stdint.h>
 #include <uk/list.h>
 #include <uk/config.h>
@@ -76,58 +78,1209 @@
 #include <virtio/virtio_config.h>
 #include <virtio/virtio_bus.h>
 #include <virtio/virtqueue.h>
+#include <virtio/virtio_ring.h>
+#include <uk/plat/io.h>
 #include <virtio/virtio_pci_modern.h>
 #include <pci/pci_bus.h>
 
 static struct uk_alloc *a;
 
-
+/**
+ * @brief Contains information to access a virtio config struct through a BAR
+ *
+ */
+struct vpci_modern_resource_map {
+	/* Address of a device configuration space, to which this resource
+	 * belongs */
+	uint32_t vrm_config_addr;
+	/* offset to the corresponding capability within the device
+	 * configuration space */
+	int vrm_cap_offset;
+	/* BAR #, where the structure lies. Can be between 0x0 and 0x5 */
+	uint8_t vrm_bar;
+	/* Offset to the struct within the BAR */
+	uint32_t vrm_struct_offset;
+	/* Length of the struct within the BAR */
+	uint32_t vrm_struct_len;
+	/* Type of BAR. SYS_RES_{MEMORY, IOPORT} */
+	int vrm_type;
+};
 /**
  * TODOFS: think how to change this.
  *
  */
 struct virtio_pci_modern_dev {
-	/* Virtio Device */
-	struct virtio_dev vdev;
-	/* Address that lies in the I/O BAR0 */
-	__u64 pci_base_addr;
-	/* ISR Address Range */
-	__u64 pci_isr_addr;
+
 	/* PCI device information */
 	struct pci_device *pdev;
+	/* Virtio Device */
+	struct virtio_dev vdev;
+
+	uint32_t vpci_notify_offset_multiplier;
+
+	struct vpci_modern_resource_map vpci_common_res_map;
+	struct vpci_modern_resource_map vpci_notify_res_map;
+	struct vpci_modern_resource_map vpci_isr_res_map;
+	struct vpci_modern_resource_map vpci_device_res_map;
+
+	// TODOFS: remove this.
+	unsigned long pci_base_addr;
+	unsigned long pci_isr_addr;
 };
+
 
 /**
  * Fetch the virtio pci information from the virtio device.
  * @param vdev
  *	Reference to the virtio device.
  */
-#define to_virtiopcimoderndev(vdev) \
+#define to_virtio_pci_modern_dev(vdev) \
 		__containerof(vdev, struct virtio_pci_modern_dev, vdev)
 
 // TODOFS: declare all functions at the beginning of the file
 /**
  * Configuration operations legacy functions (`virtio_config_ops`)
  */
-static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev);
-static int vpci_legacy_pci_config_set(struct virtio_dev *vdev, __u16 offset,
-				      const void *buf, __u32 len);
-static int vpci_legacy_pci_config_get(struct virtio_dev *vdev, __u16 offset,
-				      void *buf, __u32 len, __u8 type_len);
-static __u64 vpci_legacy_pci_features_get(struct virtio_dev *vdev);
-static void vpci_legacy_pci_features_set(struct virtio_dev *vdev,
+static void 	vpci_modern_pci_dev_reset(struct virtio_dev *vdev);
+static int 	vpci_modern_pci_config_set(struct virtio_dev *vdev, __u8 offset,
+				      const void *buf, __u8 type_len);
+static int 	vpci_modern_pci_config_get(struct virtio_dev *vdev, __u8 offset,
+				      void *buf, __u8 type_len);
+static __u64 	vpci_modern_features_get(struct virtio_dev *vdev);
+static void 	vpci_modern_features_set(struct virtio_dev *vdev,
 					 __u64 features);
-static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vq,
+static void 	vpci_modern_pci_status_set(struct virtio_dev *vdev, __u8 status);
+static __u8 	vpci_modern_pci_status_get(struct virtio_dev *vdev);
+static int 	vpci_modern_pci_vq_find(struct virtio_dev *vdev, __u16 num_vq,
 				   __u16 *qdesc_size);
-static void vpci_legacy_pci_status_set(struct virtio_dev *vdev, __u8 status);
-static __u8 vpci_legacy_pci_status_get(struct virtio_dev *vdev);
-static struct virtqueue *vpci_legacy_vq_setup(struct virtio_dev *vdev,
-					      __u16 queue_id,
-					      __u16 num_desc,
-					      virtqueue_callback_t callback,
-					      struct uk_alloc *a);
-static void vpci_legacy_vq_release(struct virtio_dev *vdev,
+static struct virtqueue
+		*vpci_modern_vq_setup(struct virtio_dev *vdev,
+				      __u16 queue_id,
+				      __u16 num_desc,
+				      virtqueue_callback_t callback,
+				      struct uk_alloc *a);
+static void 	vpci_legacy_vq_release(struct virtio_dev *vdev,
 		struct virtqueue *vq, struct uk_alloc *a);
+
+
+static int 	virtio_pci_handle(void *arg);
+static int 	vpci_modern_notify(struct virtio_dev *vdev, __u16 queue_id);
+static uint64_t	vpci_modern_base_addr_get(struct vpci_modern_resource_map *res_map);
+static int 	vpci_modern_map_configs(struct virtio_pci_modern_dev *vpdev);
+static int	vpci_modern_map_common_config(struct virtio_pci_modern_dev *vpdev);
+static int	vpci_modern_map_notify_config(struct virtio_pci_modern_dev *vpdev);
+static int	vpci_modern_map_isr_config(struct virtio_pci_modern_dev *vpdev);
+static int	vpci_modern_map_device_config(struct virtio_pci_modern_dev *vpdev);
+static int	vpci_modern_find_cap_resource(struct virtio_pci_modern_dev *vpdev,
+					      uint8_t cfg_type, __s64 min_size,
+					      int alignment,
+					      struct vpci_modern_resource_map *res);
+static int	vpci_modern_bar_type(struct virtio_pci_modern_dev *vpdev, int bar);
+static int	virtio_pci_modern_find_cap(struct pci_device *pdev,
+					   __u8 target_cfg_type, int *cap_offset);
+static uint8_t	vpci_modern_config_generation(struct virtio_pci_modern_dev *vpdev);
+static uint8_t vpci_modern_read_common_1(struct virtio_pci_modern_dev *vpdev,
+					 uint8_t off);
+static uint16_t vpci_modern_read_common_2(struct virtio_pci_modern_dev *vpdev,
+					  uint8_t off);
+static uint32_t	vpci_modern_read_common_4(struct virtio_pci_modern_dev *vpdev,
+					  uint8_t off);
+static void	vpci_modern_write_common_1(struct virtio_pci_modern_dev *vpdev,
+					   uint8_t off, uint8_t val);
+static void	vpci_modern_write_common_2(struct virtio_pci_modern_dev *vpdev,
+					   uint8_t off, uint16_t val);
+static void	vpci_modern_write_common_4(struct virtio_pci_modern_dev *vpdev,
+					   uint8_t off, uint32_t val);
+static void	vpci_modern_write_common_8(struct virtio_pci_modern_dev *vpdev,
+					   uint8_t off, uint64_t val);
+static uint8_t	vpci_modern_read_isr_1(struct virtio_pci_modern_dev *vpdev,
+				       uint8_t off);
+static int	vpci_modern_read_device_1(struct virtio_pci_modern_dev *vpdev,
+					  uint8_t off, uint8_t *buf);
+static int	vpci_modern_read_device_2(struct virtio_pci_modern_dev *vpdev,
+					  uint8_t off, uint16_t *buf);
+static int	vpci_modern_read_device_4(struct virtio_pci_modern_dev *vpdev,
+					  uint8_t off, uint32_t *buf);
+
+static int 	virtio_pci_modern_add_dev(struct pci_device *pci_dev);
+
+
+/**
+ * Configuration operations legacy PCI device.
+ */
+static struct virtio_config_ops vpci_legacy_ops = {
+	.device_reset = vpci_modern_pci_dev_reset,
+	.modern_config_get   = vpci_modern_pci_config_get,
+	.modern_config_set   = vpci_modern_pci_config_set,
+	.features_get = vpci_modern_features_get,
+	.features_set = vpci_modern_features_set,
+	.status_get   = vpci_modern_pci_status_get,
+	.status_set   = vpci_modern_pci_status_set,
+	.vqs_find     = vpci_modern_pci_vq_find,
+	.vq_setup     = vpci_modern_vq_setup,
+	.vq_release   = vpci_legacy_vq_release,
+};
+
+static void vpci_legacy_vq_release(struct virtio_dev *vdev,
+		struct virtqueue *vq, struct uk_alloc *a)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+	long flags;
+
+	UK_ASSERT(vq != NULL);
+	UK_ASSERT(a != NULL);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	/* Select and deactivate the queue */
+	virtio_cwrite16((void *)(unsigned long)vpdev->pci_base_addr,
+			VIRTIO_QUEUE_SEL, vq->queue_id);
+	virtio_cwrite32((void *)(unsigned long)vpdev->pci_base_addr,
+			VIRTIO_QUEUE_PFN, 0);
+
+	flags = ukplat_lcpu_save_irqf();
+	UK_TAILQ_REMOVE(&vpdev->vdev.vqs, vq, next);
+	ukplat_lcpu_restore_irqf(flags);
+
+	virtqueue_destroy(vq, a);
+}
+
+/**
+ * @brief returns the base address where the BAR, containing the res_map begins
+ *
+ * @param res_map
+ * @return uint64_t
+ */
+static uint64_t
+vpci_modern_base_addr_get(struct vpci_modern_resource_map *res_map)
+{
+	uint64_t base_addr = 0, tmp;
+
+	UK_ASSERT(res_map);
+	UK_ASSERT(res_map->vrm_type == SYS_RES_IOPORT ||
+			res_map->vrm_type == SYS_RES_MEMORY);
+
+	switch (res_map->vrm_type) {
+	case SYS_RES_IOPORT:
+		PCI_CONF_READ_OFFSET(uint64_t, &base_addr,
+			res_map->vrm_config_addr,
+			PCI_BAR_OFFSET(res_map->vrm_bar),
+			PCI_BAR_IO_ADDR_SHIFT, PCI_BAR_IO_ADDR_MASK);
+		UK_ASSERT(base_addr < 0xFFFF);
+		// TODO: need to check that base_addr is < 2^16-1? Bc the
+		// I/O address space is 16 bit addressable?
+		break;
+	case SYS_RES_MEMORY:
+		PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+			PCI_BAR_OFFSET(res_map->vrm_bar),
+			PCI_BAR_MEM_TYPE_SHIFT,
+			PCI_BAR_MEM_TYPE_MASK);
+		if (tmp == 0x0) {
+			// 32bit memory space
+			PCI_CONF_READ_OFFSET(uint64_t, &base_addr, res_map->vrm_config_addr,
+				PCI_BAR_OFFSET(res_map->vrm_bar),
+				PCI_BAR_MEM_32_SHIFT,
+				PCI_BAR_MEM_32_MASK);
+		} else if (tmp == 0x2) {
+			// 64bit memory space
+			PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+				PCI_BAR_OFFSET(res_map->vrm_bar),
+				PCI_BAR_MEM_32_SHIFT,
+				PCI_BAR_MEM_32_MASK);
+			base_addr = tmp;
+			PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+				PCI_BAR_OFFSET(res_map->vrm_bar + 1),
+				PCI_BAR_MEM_32_SHIFT,
+				PCI_BAR_MEM_64_MASK);
+			tmp = tmp << 32;
+			base_addr += tmp;
+		}
+		break;
+	}
+
+	return base_addr;
+}
+
+static uint8_t vpci_modern_read_common_1(struct virtio_pci_modern_dev *vpdev,
+					 uint8_t off)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read common config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map)
+			+ vpdev->vpci_common_res_map.vrm_struct_offset;
+
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		return virtio_cread8((void *) base_addr,off);
+	case SYS_RES_MEMORY:
+		return virtio_mem_cread8((void *) base_addr, off);
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+}
+
+static uint16_t
+vpci_modern_read_common_2(struct virtio_pci_modern_dev *vpdev,
+			  uint8_t off)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read common config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	// TODOFS: refactoring: maybe calculate the base address only once and
+	// save in the map?
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map)
+			+ vpdev->vpci_common_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		return virtio_cread16((void *) base_addr,off);
+	case SYS_RES_MEMORY:
+		return virtio_mem_cread16((void *) base_addr, off);
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+}
+
+static uint32_t
+vpci_modern_read_common_4(struct virtio_pci_modern_dev *vpdev,
+			  uint8_t off)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read common config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	// TODOFS: refactoring: maybe calculate the base address only once and
+	// save in the map?
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map)
+			+ vpdev->vpci_common_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		return virtio_cread32((void *) base_addr,off);
+	case SYS_RES_MEMORY:
+		return virtio_mem_cread32((void *) base_addr, off);
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+}
+
+static void
+vpci_modern_write_common_1(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint8_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write common config. The write offset is \
+		greater than the struct length.\n");
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map) +
+		vpdev->vpci_common_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite8((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite8((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_common_2(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint16_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write common config. The write offset is \
+		greater than the struct length.\n");
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map) +
+		vpdev->vpci_common_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite16((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite16((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_common_4(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint32_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_common_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_common_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_common_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write common config. The write offset is \
+		greater than the struct length.\n");
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_common_res_map) +
+		vpdev->vpci_common_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_common_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite32((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite32((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_common_8(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint64_t val)
+{
+	uint32_t val0, val1;
+
+	UK_ASSERT(vpdev);
+
+	val0 = (uint32_t) val;
+	val1 = val >> 32;
+
+	vpci_modern_write_common_4(vpdev, off, val0);
+	vpci_modern_write_common_4(vpdev, off + 4, val1);
+}
+
+static uint8_t
+vpci_modern_read_isr_1(struct virtio_pci_modern_dev *vpdev, uint8_t off)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_isr_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_isr_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_isr_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write isr config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_isr_res_map)
+			+ vpdev->vpci_isr_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_isr_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		return virtio_cread8((void *) base_addr,off);
+	case SYS_RES_MEMORY:
+		return virtio_mem_cread8((void *) base_addr, off);
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+}
+
+static int
+vpci_modern_read_device_1(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			  uint8_t *buf)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read device config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		*buf = virtio_cread8((void *) base_addr,off);
+		break;
+	case SYS_RES_MEMORY:
+		*buf = virtio_mem_cread8((void *) base_addr, off);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+vpci_modern_read_device_2(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			  uint16_t *buf)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read device config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		*buf = virtio_cread16((void *) base_addr,off);
+		break;
+	case SYS_RES_MEMORY:
+		*buf = virtio_mem_cread16((void *) base_addr, off);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
+vpci_modern_read_device_4(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			  uint32_t *buf)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot read device config. The write offset is \
+		greater than the struct length.\n");
+		return -1;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		*buf = virtio_cread32((void *) base_addr,off);
+		break;
+	case SYS_RES_MEMORY:
+		*buf = virtio_mem_cread32((void *) base_addr, off);
+		break;
+	default:
+		UK_CRASH("Unknown BAR type\n");
+	}
+
+	return 0;
+}
+
+static uint8_t
+vpci_modern_config_generation(struct virtio_pci_modern_dev *vpdev)
+{
+	uint8_t gen;
+
+	UK_ASSERT(vpdev);
+
+	gen = vpci_modern_read_common_1(vpdev, VIRTIO_MODERN_COMMON_CFGGEN);
+
+	return gen;
+}
+
+static int
+vpci_modern_read_device_8(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			  uint64_t *buf)
+{
+	uint8_t gen;
+	uint32_t val0, val1;
+	int rc = 0;
+
+	/*
+	 * Treat the 64-bit field as two 32-bit fields. Use the generation
+	 * to ensure a consistent read. (Reads from multiple fields or fields
+	 * greater, than 32 bits, are non-atomic)
+	 */
+	do {
+		gen = vpci_modern_config_generation(vpdev);
+		rc = vpci_modern_read_device_4(vpdev, off, &val0);
+		rc |= vpci_modern_read_device_4(vpdev, off + 4, &val1);
+	} while (gen != vpci_modern_config_generation(vpdev));
+
+	if (rc)
+		return rc;
+
+	*buf = (((uint64_t) val1 << 32) | val0);
+	return 0;
+}
+
+static void
+vpci_modern_write_device_1(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint8_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write device config. The write offset is \
+		greater than the struct length.\n");
+		return;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite8((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite8((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_device_2(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint16_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write device config. The write offset is \
+		greater than the struct length.\n");
+		return;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite16((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite16((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_device_4(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint32_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_device_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_device_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_device_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write device config. The write offset is \
+		greater than the struct length.\n");
+		return;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_device_res_map)
+			+ vpdev->vpci_device_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_device_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite32((void *) base_addr,off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite32((void *) base_addr, off, val);
+		break;
+	default:
+		uk_pr_err("Unknown BAR type\n");
+	}
+}
+
+static void
+vpci_modern_write_device_8(struct virtio_pci_modern_dev *vpdev, uint8_t off,
+			   uint64_t val)
+{
+	uint32_t val0, val1;
+
+	val0 = (uint32_t) val;
+	val1 = val >> 32;
+
+	vpci_modern_write_device_4(vpdev, off, val0);
+	vpci_modern_write_device_4(vpdev, off + 4, val1);
+
+}
+
+static void
+vpci_modern_write_notify_2(struct virtio_pci_modern_dev *vpdev, uint16_t off,
+			   uint16_t val)
+{
+	uint64_t base_addr;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(vpdev->vpci_notify_res_map.vrm_type == SYS_RES_IOPORT ||
+			vpdev->vpci_notify_res_map.vrm_type == SYS_RES_MEMORY);
+
+	if (unlikely(off > vpdev->vpci_notify_res_map.vrm_struct_len)) {
+		uk_pr_err("Cannot write common config. The write offset is \
+		greater than the struct length.\n");
+		return;
+	}
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_notify_res_map)
+		    + vpdev->vpci_notify_res_map.vrm_struct_offset;
+
+	switch (vpdev->vpci_notify_res_map.vrm_type) {
+	case SYS_RES_IOPORT:
+		virtio_cwrite16((void *) base_addr, off, val);
+		break;
+	case SYS_RES_MEMORY:
+		virtio_mem_cwrite16((void *) base_addr, off, val);
+		break;
+	}
+}
+
+/**
+ * @brief setting the config for the vdev
+ *
+ * @param vdev
+ * @param offset
+ * @param buf
+ * @param len
+ * @return int
+ */
+static int vpci_modern_pci_config_set(struct virtio_dev *vdev, __u8 offset,
+				      const void *buf, __u8 type_len)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	if (vpdev->vpci_device_res_map.vrm_struct_len == 0) {
+		uk_pr_err("Attempt to write device-specific configuration\
+					which is not present\n");
+		return -1;
+	}
+
+	switch (type_len) {
+	case 1:
+		vpci_modern_write_device_1(vpdev, offset,
+					   *(const uint8_t *) buf);
+		break;
+	case 2: {
+		vpci_modern_write_device_2(vpdev, offset,
+					   *(const uint16_t *) buf);
+		break;
+	}
+	case 4: {
+		vpci_modern_write_device_4(vpdev, offset,
+					   *(const uint32_t *) buf);
+		break;
+	}
+	case 8: {
+		vpci_modern_write_device_8(vpdev, offset,
+					   *(const uint64_t *) buf);
+		break;
+	}
+	default:
+		uk_pr_err("%s: device %" __PRIu16 " invalid device config write\
+		length %" __PRIu8 " offset %" __PRIu16 "\n", __func__,
+		vdev->id.virtio_device_id, type_len, offset);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Reads the device-specific configuration
+ *
+ * Reads from an @p offset of the device-specific configuration @p type_len
+ * bytes and saves them into the @p buf. @p buf is assumed to be at least the
+ * type_len bytes in size.
+ *
+ * @param vdev
+ * @param offset
+ * @param buf
+ * @param len is unused
+ * @param type_len
+ * @return int
+ */
+static int vpci_modern_pci_config_get(struct virtio_dev *vdev, __u8 offset,
+				      void *buf, __u8 type_len)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+	int rc = 0;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	if (vpdev->vpci_device_res_map.vrm_struct_len == 0) {
+		uk_pr_err("Attempt to read device-specific configuration\
+					which is not present\n");
+		return -1;
+	}
+
+	switch (type_len) {
+	case 1:
+		rc = vpci_modern_read_device_1(vpdev, offset, (uint8_t *) buf);
+		break;
+	case 2:
+		rc = vpci_modern_read_device_2(vpdev, offset, (uint16_t *) buf);
+		break;
+	case 4:
+		rc = vpci_modern_read_device_4(vpdev, offset, (uint32_t *) buf);
+		break;
+	case 8:
+		rc = vpci_modern_read_device_8(vpdev, offset, (uint64_t *) buf);
+		break;
+	default:
+		uk_pr_err("%s: device %" __PRIu16 " invalid device config read \
+		length %" __PRIu8 " offset %" __PRIu16 "\n", __func__,
+		vdev->id.virtio_device_id, type_len, offset);
+		return -1;
+	}
+
+	return rc;
+}
+
+static __u64 vpci_modern_features_get(struct virtio_dev *vdev)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+	__u64  features0, features1;
+
+	UK_ASSERT(vdev);
+
+	vpdev = to_virtio_pci_modern_dev(vdev);
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_DFSELECT, 0);
+	features0 = vpci_modern_read_common_4(vpdev, VIRTIO_MODERN_COMMON_DF);
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_DFSELECT, 1);
+	features1 = vpci_modern_read_common_4(vpdev, VIRTIO_MODERN_COMMON_DF);
+
+	return (((uint64_t) (features1 << 32)) | features0);
+}
+
+/**
+ * @brief feature negotiation
+ *
+ * @param vdev
+ * @param features
+ */
+static void vpci_modern_features_set(struct virtio_dev *vdev,
+					 __u64 features)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+	uint32_t features0, features1;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	/* TODOFS: Mask out features not supported by the virtqueue driver */
+	// features = virtqueue_feature_negotiate(features);
+	features0 = features;
+	features1 = features >> 32;
+
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_GFSELECT, 0);
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_GF, features0);
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_GFSELECT, 1);
+	vpci_modern_write_common_4(vpdev, VIRTIO_MODERN_COMMON_GF, features1);
+}
+
+static __u8 vpci_modern_pci_status_get(struct virtio_dev *vdev)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+
+	UK_ASSERT(vdev);
+
+	vpdev = to_virtio_pci_modern_dev(vdev);
+	return (vpci_modern_read_common_1(vpdev,
+					 VIRTIO_MODERN_COMMON_STATUS));
+}
+
+static void vpci_modern_pci_status_set(struct virtio_dev *vdev,
+				       __u8 status)
+{
+	struct virtio_pci_modern_dev *vpdev = NULL;
+
+	UK_ASSERT(vdev);
+
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	if (status != VIRTIO_CONFIG_STATUS_RESET)
+		status |= vpci_modern_pci_status_get(vdev);
+
+	vpci_modern_write_common_1(vpdev, VIRTIO_MODERN_COMMON_STATUS,
+				    status);
+}
+
+static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
+{
+	__u8 status;
+
+	UK_ASSERT(vdev);
+
+	/**
+	 * Resetting the device.
+	 */
+	vpci_modern_pci_status_set(vdev, VIRTIO_CONFIG_STATUS_RESET);
+
+	/**
+	 * Waiting for the resetting the device. Find a better way
+	 * of doing this instead of repeating register read.
+	 *
+	 * NOTE! Spec (4.1.4.3.2)
+	 * Need to check if we have to wait for the reset to happen.
+	 *
+	 * TODOFS: spinwait?
+	 */
+	do {
+		status = vpci_modern_pci_status_get(vdev);
+	} while (status != VIRTIO_CONFIG_STATUS_RESET);
+}
+
+
+/**
+ * @brief
+ *
+ * @param pdev
+ * @param cfg_type
+ * @param [out] cap_offset
+ * @return int
+ */
+static int virtio_pci_modern_find_cap(struct pci_device *pdev,
+				      __u8 target_cfg_type, int *cap_offset)
+{
+	int rc;
+	uint8_t curr_cap, cfg_type, bar;
+
+	UK_ASSERT(pdev);
+
+	for (rc = arch_pci_find_cap(pdev,
+				    VIRTIO_PCI_CAP_VENDOR_ID,
+				    &curr_cap);
+	     rc == 0;
+	     rc = arch_pci_find_next_cap(pdev,
+	     				 VIRTIO_PCI_CAP_VENDOR_ID,
+					 curr_cap,
+					 &curr_cap)) {
+
+		/* Spec: MUST ignore any vendor-specific capability structure
+		 * which has a reserved bar value. */
+		PCI_CONF_READ_OFFSET(uint8_t, &bar, pdev->config_addr,
+			VIRTIO_PCI_CAP_BAR_OFFSET(curr_cap),
+			VIRTIO_PCI_CAP_BAR_SHIFT,
+			VIRTIO_PCI_CAP_BAR_MASK);
+		if (bar >= VIRTIO_PCI_MODERN_MAX_BARS)
+			continue;
+
+		PCI_CONF_READ_OFFSET(uint8_t, &cfg_type, pdev->config_addr,
+			VIRTIO_PCI_CAP_CFG_TYPE_OFFSET(curr_cap),
+			VIRTIO_PCI_CAP_CFG_TYPE_SHIFT,
+			VIRTIO_PCI_CAP_CFG_TYPE_MASK);
+		if (cfg_type == target_cfg_type) {
+			if (cap_offset != NULL)
+				*cap_offset = curr_cap;
+			break;
+		}
+	}
+
+	return rc;
+}
+
+// TODOFS: remove?
+// static int virtio_pci_modern_probe_configs(struct virtio_pci_modern_dev *vpdev)
+// {
+// 	int rc = 0;
+
+// 	/*
+// 	 * These config capabilities must be present. The DEVICE_CFG
+// 	 * capability is only present if the device requires it.
+// 	 */
+
+// 	rc = virtio_pci_modern_find_cap(vpdev->pdev,
+// 		VIRTIO_PCI_CAP_COMMON_CFG, NULL);
+// 	if (unlikely(rc)) {
+// 		uk_pr_err("cannot find COMMON_CFG capability\n");
+// 		goto exit;
+// 	}
+
+// 	rc = virtio_pci_modern_find_cap(vpdev->pdev,
+// 		VIRTIO_PCI_CAP_NOTIFY_CFG, NULL);
+// 	if (unlikely(rc)) {
+// 		uk_pr_err("cannot find NOTIFY_CFG capability\n");
+// 		goto exit;
+// 	}
+
+// 	rc = virtio_pci_modern_find_cap(vpdev->pdev,
+// 		VIRTIO_PCI_CAP_ISR_CFG, NULL);
+// 	if (unlikely(rc)) {
+// 		uk_pr_err("cannot find ISR_CFG capability\n");
+// 		goto exit;
+// 	}
+
+// exit:
+// 	return rc;
+// }
+
+static int
+vpci_modern_bar_type(struct virtio_pci_modern_dev *vpdev, int bar)
+{
+	uint32_t val;
+
+	/*
+	 * The BAR described by a config capability may be either an IOPORT or
+	 * MEM. Here we determine this type.
+	 */
+	PCI_CONF_READ_OFFSET(uint32_t, &val, vpdev->pdev->config_addr,
+			     PCI_BAR_OFFSET(bar),
+			     PCI_BASE_ADDRESS_SHIFT, PCI_BASE_ADDRESS_MASK);
+	if (PCI_BAR_IO(val))
+		return (SYS_RES_IOPORT);
+	else if (PCI_BAR_MEM(val))
+	 	return (SYS_RES_MEMORY);
+	else {
+		uk_pr_err("Device %" __PRIu16 " unknown BAR type %" __PRIu32 \
+		"\n", vpdev->vdev.id.virtio_device_id, val);
+		return -1;
+	}
+}
+
+/**
+ * @brief Initializes a resource map @p res, that specifies, how a configuration
+ * struct, associated with the @p cfg_type capability, can be accessed.
+ *
+ * The resource map contains information about how the virtio configuration
+ * structure, associated with a capability of type @p cfg_type, can be located.
+ * It includes a BAR, through which it is located, a BAR type (memory space or
+ * I/O space) and an offset to the structure within the memory, mapped by the
+ * BAR.
+ *
+ * @param vpdev
+ * @param cfg_type
+ * @param min_size
+ * @param alignment
+ * @param res
+ * @return int
+ */
+static int
+vpci_modern_find_cap_resource(struct virtio_pci_modern_dev *vpdev,
+			      uint8_t cfg_type, __s64 min_size, int alignment,
+			      struct vpci_modern_resource_map *res)
+{
+	struct pci_device *pdev;
+	int rc = 0, cap_offset;
+	uint8_t bar, cap_length;
+	uint32_t struct_offset, struct_len;
+
+	UK_ASSERT(vpdev);
+	UK_ASSERT(res);
+
+	pdev = vpdev->pdev;
+
+	rc = virtio_pci_modern_find_cap(pdev, cfg_type, &cap_offset);
+	if (rc)
+		goto exit;
+
+	PCI_CONF_READ_OFFSET(uint8_t, &cap_length, pdev->config_addr,
+		VIRTIO_PCI_CAP_LEN_OFFSET(cap_offset),
+		VIRTIO_PCI_CAP_LEN_SHIFT,
+		VIRTIO_PCI_CAP_LEN_MASK);
+
+	if (unlikely(cap_length < sizeof(struct virtio_pci_cap))) {
+		uk_pr_err("Capability %" __PRIu8 " length %" __PRIu8 " is \
+			   less than expected\n",
+			   cfg_type, cap_length);
+		return -ENXIO;
+	}
+	PCI_CONF_READ_OFFSET(uint8_t, &bar, pdev->config_addr,
+			VIRTIO_PCI_CAP_BAR_OFFSET(cap_offset),
+			VIRTIO_PCI_CAP_BAR_SHIFT,
+			VIRTIO_PCI_CAP_BAR_MASK);
+	if (unlikely(bar > 0x5)) {
+		uk_pr_err("Unsupported bar number %" __PRIu8 "\n", bar);
+		return -ENXIO;
+	}
+	PCI_CONF_READ_OFFSET(uint32_t, &struct_offset, pdev->config_addr,
+			VIRTIO_PCI_CAP_S_OFFSET_OFFSET(cap_offset),
+			VIRTIO_PCI_CAP_S_OFFSET_SHIFT,
+			VIRTIO_PCI_CAP_S_OFFSET_MASK);
+	PCI_CONF_READ_OFFSET(uint32_t, &struct_len, pdev->config_addr,
+			VIRTIO_PCI_STRUCT_LEN_OFFSET(cap_offset),
+			VIRTIO_PCI_STRUCT_LEN_SHIFT,
+			VIRTIO_PCI_STRUCT_LEN_MASK);
+
+	if (unlikely(min_size != -1 && struct_len < min_size)) {
+		uk_pr_err("Capability %" __PRIu8 " struct length %" __PRIu32 \
+			  "less than min %" __PRIs64 "\n",
+			  cfg_type, struct_len, min_size);
+		return -ENXIO;
+	}
+
+	if (unlikely(struct_offset % alignment)) {
+		uk_pr_err("Capability %" __PRIu8 " struct offset %" __PRIu32 \
+			  " not aligned to %d\n",
+			   cfg_type, struct_len, alignment);
+		return -ENXIO;
+	}
+
+	res->vrm_config_addr = pdev->config_addr;
+	res->vrm_cap_offset = cap_offset;
+	res->vrm_bar = bar;
+	res->vrm_struct_offset = struct_offset;
+	res->vrm_struct_len = struct_len;
+	res->vrm_type = vpci_modern_bar_type(vpdev, bar);
+	if (unlikely(res->vrm_type == -1))
+		return -ENXIO;
+
+exit:
+	return rc;
+}
+
+static int
+vpci_modern_map_notify_config(struct virtio_pci_modern_dev *vpdev)
+{
+	int rc = 0, cap_offset;
+
+	UK_ASSERT(vpdev);
+
+	rc = vpci_modern_find_cap_resource(vpdev, VIRTIO_PCI_CAP_NOTIFY_CFG,
+	-1, 2, &vpdev->vpci_notify_res_map);
+	if (rc) {
+		uk_pr_err("Device %" __PRIu16 " cannot find cap NOTIFY_CFG \
+		resource\n", vpdev->vdev.id.virtio_device_id);
+		goto exit;
+	}
+
+	cap_offset = vpdev->vpci_notify_res_map.vrm_cap_offset;
+
+	PCI_CONF_READ_OFFSET(uint32_t, &vpdev->vpci_notify_offset_multiplier,
+	vpdev->pdev->config_addr,
+	cap_offset + __offsetof(struct virtio_pci_notify_cap, notify_off_multiplier),
+	VIRTIO_NOTIFY_MULTIPLIER_SHIFT,
+	VIRTIO_NOTIFY_MULTIPLIER_MASK);
+
+exit:
+	return rc;
+}
+
+static int
+vpci_modern_map_common_config(struct virtio_pci_modern_dev *vpdev)
+{
+	int rc = 0;
+
+	UK_ASSERT(vpdev);
+
+	rc = vpci_modern_find_cap_resource(vpdev, VIRTIO_PCI_CAP_COMMON_CFG,
+	 sizeof(struct virtio_pci_common_cfg), 4, &vpdev->vpci_common_res_map);
+	if (rc) {
+		uk_pr_err("Device %" __PRIu16 " cannot find cap COMMON_CFG \
+		resource\n", vpdev->vdev.id.virtio_device_id);
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+static int
+vpci_modern_map_isr_config(struct virtio_pci_modern_dev *vpdev) {
+	int rc = 0;
+
+	rc = vpci_modern_find_cap_resource(vpdev, VIRTIO_PCI_CAP_ISR_CFG,
+	 sizeof(uint8_t), 1, &vpdev->vpci_isr_res_map);
+	if (rc) {
+		uk_pr_err("Device %" __PRIu16 " cannot find cap ISR_CFG \
+		resource\n", vpdev->vdev.id.virtio_device_id);
+		goto exit;
+	}
+
+exit:
+	return rc;
+
+}
+
+static int
+vpci_modern_map_device_config(struct virtio_pci_modern_dev *vpdev)
+{
+	int rc = 0;
+
+	rc = vpci_modern_find_cap_resource(vpdev, VIRTIO_PCI_CAP_DEVICE_CFG,
+	-1, 4, &vpdev->vpci_device_res_map);
+	/* TODOFS: read up, how to determine, if the Device-specific
+	 * configuration is optional for a device.
+	 */
+	// if (rc == ENOENT) {
+	// 	/* Device configuration is optional depending on device. */
+	// 	rc = 0;
+	// 	goto exit;
+	// } else if (rc) {
+	/* 	uk_pr_err("Device %" __PRIu16 " cannot find cap DEVICE_CFG \ */
+	// 	resource\n", vpdev->vdev.id.virtio_device_id);
+	// 	goto exit;
+	// }
+	if (rc) {
+		uk_pr_info("Device %" __PRIu16 " cannot find device-specific  \
+		configuration\n", vpdev->vdev.id.virtio_device_id);
+		/* indicates that the device-specific configuration is absent */
+		vpdev->vpci_device_res_map.vrm_struct_len = 0;
+		rc = 0;
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
 /**
  * @brief some interrupt handler for a virtqueue used in
  * `vpci_legacy_pci_vq_find`. Sends an interrupt to each vq of the `arg`
@@ -136,47 +1289,6 @@ static void vpci_legacy_vq_release(struct virtio_dev *vdev,
  * @param arg virtio_pci_dev vpdev from `vpci_legacy_pci_vq_find`
  * @return int
  */
-static int virtio_pci_handle(void *arg);
-static int vpci_legacy_notify(struct virtio_dev *vdev, __u16 queue_id);
-static int virtio_pci_modern_probe_configs(struct pci_device *pci_dev);
-static int virtio_pci_modern_add_dev(struct pci_device *pci_dev);
-
-/**
- * Configuration operations legacy PCI device.
- */
-static struct virtio_config_ops vpci_legacy_ops = {
-	.device_reset = vpci_modern_pci_dev_reset,
-	.config_get   = vpci_legacy_pci_config_get,
-	.config_set   = vpci_legacy_pci_config_set,
-	.features_get = vpci_legacy_pci_features_get,
-	.features_set = vpci_legacy_pci_features_set,
-	.status_get   = vpci_legacy_pci_status_get,
-	.status_set   = vpci_legacy_pci_status_set,
-	.vqs_find     = vpci_legacy_pci_vq_find,
-	.vq_setup     = vpci_legacy_vq_setup,
-	.vq_release   = vpci_legacy_vq_release,
-};
-
-/**
- * @brief function needed for setting up the virtqueues.
- * (Used in `vpci_legacy_vq_setup`)
- *
- * @param vdev
- * @param queue_id
- * @return int
- */
-static int vpci_legacy_notify(struct virtio_dev *vdev, __u16 queue_id)
-{
-	struct virtio_pci_modern_dev *vpdev;
-
-	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
-	virtio_cwrite16((void *)(unsigned long) vpdev->pci_base_addr,
-			VIRTIO_PCI_QUEUE_NOTIFY, queue_id);
-
-	return 0;
-}
-
 static int virtio_pci_handle(void *arg)
 {
 	struct virtio_pci_modern_dev *d = (struct virtio_pci_modern_dev *) arg;
@@ -187,8 +1299,7 @@ static int virtio_pci_handle(void *arg)
 	UK_ASSERT(arg);
 
 	/* Reading the isr status is used to acknowledge the interrupt */
-	isr_status = virtio_cread8((void *)(unsigned long)d->pci_isr_addr, 0);
-	/* We don't support configuration interrupt on the device */
+	isr_status = vpci_modern_read_isr_1(d, 0);
 	if (isr_status & VIRTIO_PCI_ISR_CONFIG) {
 		uk_pr_warn("Unsupported config change interrupt received on virtio-pci device %p\n",
 			   d);
@@ -204,77 +1315,60 @@ static int virtio_pci_handle(void *arg)
 	return rc;
 }
 
+
+static int vpci_modern_map_configs(struct virtio_pci_modern_dev *vpdev)
+{
+	int rc = 0;
+
+	rc = vpci_modern_map_common_config(vpdev);
+	if (unlikely(rc))
+		goto exit;
+
+	rc = vpci_modern_map_notify_config(vpdev);
+	if (unlikely(rc))
+		goto exit;
+
+	rc = vpci_modern_map_isr_config(vpdev);
+	if (unlikely(rc))
+		goto exit;
+
+	rc = vpci_modern_map_device_config(vpdev);
+	if (unlikely(rc))
+		goto exit;
+
+exit:
+	return rc;
+}
+
 /**
- * @brief initialize a virtqueue and append it to the end of the
- * `vdev` vqs (virtualqueues) list
+ * @brief function needed for setting up the virtqueues.
+ * (Used in `vpci_modern_vq_setup`)
  *
  * @param vdev
  * @param queue_id
- * @param num_desc
- * @param callback comes from a driver, e.g. virtio_9p.c
- * @param a
- * @return struct virtqueue*
+ * @return int
  */
-static struct virtqueue *vpci_legacy_vq_setup(struct virtio_dev *vdev,
-					      __u16 queue_id,
-					      __u16 num_desc,
-					      virtqueue_callback_t callback,
-					      struct uk_alloc *a)
+static int vpci_modern_notify(struct virtio_dev *vdev, __u16 queue_id)
 {
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	struct virtqueue *vq;
-	__paddr_t addr;
-	long flags;
+	struct virtio_pci_modern_dev *vpdev;
+	uint16_t q_notify_off;
 
-	UK_ASSERT(vdev != NULL);
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+	/* TODOFS: optimization: save this offset on queue initialization inside
+	 * the queue struct and pass it to this function. So that we don't have
+	 * to access memory here.
+	 */
+	/* Select virtqueue and read the queue_notify_off */
+	vpci_modern_write_common_2(vpdev, VIRTIO_MODERN_COMMON_Q_SELECT, queue_id);
+	q_notify_off = vpci_modern_read_common_2(vpdev,
+						VIRTIO_MODERN_COMMON_Q_NOFF);
 
-	vpdev = to_virtiopcimoderndev(vdev);
-	vq = virtqueue_create(queue_id, num_desc, VIRTIO_PCI_VRING_ALIGN,
-			      callback, vpci_legacy_notify, vdev, a);
-	if (PTRISERR(vq)) {
-		uk_pr_err("Failed to create the virtqueue: %d\n",
-			  PTR2ERR(vq));
-		goto err_exit;
-	}
+	vpci_modern_write_notify_2(vpdev,
+			q_notify_off * vpdev->vpci_notify_offset_multiplier,
+			queue_id);
 
-	/* Physical address of the queue */
-	addr = virtqueue_physaddr(vq);
-	/* Select the queue of interest */
-	virtio_cwrite16((void *)(unsigned long)vpdev->pci_base_addr,
-			VIRTIO_PCI_QUEUE_SEL, queue_id);
-	virtio_cwrite32((void *)(unsigned long)vpdev->pci_base_addr,
-			VIRTIO_PCI_QUEUE_PFN,
-			addr >> VIRTIO_PCI_QUEUE_ADDR_SHIFT);
-
-	flags = ukplat_lcpu_save_irqf();
-	UK_TAILQ_INSERT_TAIL(&vpdev->vdev.vqs, vq, next);
-	ukplat_lcpu_restore_irqf(flags);
-
-err_exit:
-	return vq;
-}
-
-static void vpci_legacy_vq_release(struct virtio_dev *vdev,
-		struct virtqueue *vq, struct uk_alloc *a)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	long flags;
-
-	UK_ASSERT(vq != NULL);
-	UK_ASSERT(a != NULL);
-	vpdev = to_virtiopcimoderndev(vdev);
-
-	/* Select and deactivate the queue */
-	virtio_cwrite16((void *)(unsigned long)vpdev->pci_base_addr,
-			VIRTIO_PCI_QUEUE_SEL, vq->queue_id);
-	virtio_cwrite32((void *)(unsigned long)vpdev->pci_base_addr,
-			VIRTIO_PCI_QUEUE_PFN, 0);
-
-	flags = ukplat_lcpu_save_irqf();
-	UK_TAILQ_REMOVE(&vpdev->vdev.vqs, vq, next);
-	ukplat_lcpu_restore_irqf(flags);
-
-	virtqueue_destroy(vq, a);
+	return 0;
 }
 
 /**
@@ -283,17 +1377,17 @@ static void vpci_legacy_vq_release(struct virtio_dev *vdev,
  *
  * @param vdev
  * @param num_vqs
- * @param qdesc_size array that comes from the driver
+ * @param[out] qdesc_size array of queue size for each queue.
  * @return int
  */
-static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
+static int vpci_modern_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 				   __u16 *qdesc_size)
 {
 	struct virtio_pci_modern_dev *vpdev = NULL;
 	int vq_cnt = 0, i = 0, rc = 0;
 
 	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
 
 	/* Registering the interrupt for the device. Function forwards the
 	   interrupt to each vq of the device */
@@ -305,11 +1399,10 @@ static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 
 	/* Count the number of queues and get their sizes */
 	for (i = 0; i < num_vqs; i++) {
-		virtio_cwrite16((void *) (unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_QUEUE_SEL, i);
-		qdesc_size[i] = virtio_cread16(
-				(void *) (unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_QUEUE_SIZE);
+		vpci_modern_write_common_2(vpdev,
+					VIRTIO_MODERN_COMMON_Q_SELECT, i);
+		qdesc_size[i] = vpci_modern_read_common_2(vpdev,
+					VIRTIO_MODERN_COMMON_Q_SIZE);
 		if (unlikely(!qdesc_size[i])) {
 			uk_pr_err("Virtqueue %d not available\n", i);
 			continue;
@@ -320,220 +1413,67 @@ static int vpci_legacy_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 }
 
 /**
- * @brief setting the config for the vdev
+ * @brief initialize a virtqueue and append it to the end of the
+ * `vdev` vqs (virtualqueues) list
  *
  * @param vdev
- * @param offset
- * @param buf
- * @param len
- * @return int
+ * @param queue_id
+ * @param num_desc is the queue_size. Corresponds to the maximum number of
+ * 		   buffers in the virtqueue.
+ * @param callback comes from a driver, e.g. virtio_9p.c
+ * @param a
+ * @return struct virtqueue*
  */
-static int vpci_legacy_pci_config_set(struct virtio_dev *vdev, __u16 offset,
-				      const void *buf, __u32 len)
+static struct virtqueue *vpci_modern_vq_setup(struct virtio_dev *vdev,
+					      __u16 queue_id,
+					      __u16 num_desc,
+					      virtqueue_callback_t callback,
+					      struct uk_alloc *a)
 {
 	struct virtio_pci_modern_dev *vpdev = NULL;
+	struct virtqueue *vq;
+	struct virtqueue_vring *vrq;
+	__paddr_t desc_paddr, avail_paddr, used_paddr;
+	long flags;
 
-	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
+	UK_ASSERT(vdev != NULL);
 
-	_virtio_cwrite_bytes((void *)(unsigned long)vpdev->pci_base_addr,
-			     VIRTIO_PCI_CONFIG_OFF + offset, buf, len, 1);
-
-	return 0;
-}
-
-static int vpci_legacy_pci_config_get(struct virtio_dev *vdev, __u16 offset,
-				      void *buf, __u32 len, __u8 type_len)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	int rc = 0;
-
-	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
-
-	/* Reading an entity less than 4 bytes are atomic */
-	if (type_len == len && type_len <= 4) {
-		_virtio_cread_bytes(
-				(void *) (unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_CONFIG_OFF + offset, buf, len,
-				type_len);
-	} else {
-		rc = virtio_cread_bytes_many(
-				(void *) (unsigned long)vpdev->pci_base_addr,
-				VIRTIO_PCI_CONFIG_OFF + offset,	buf, len);
-		if (rc != (int)len)
-			return -EFAULT;
+	vpdev = to_virtio_pci_modern_dev(vdev);
+	/* Allocate and zero virtqueue in contiguous physical memory, on a 4096
+	 * byte alignment.*/
+	vq = virtqueue_create(queue_id, num_desc, VIRTIO_PCI_VRING_ALIGN,
+			      callback, vpci_modern_notify, vdev, a);
+	if (PTRISERR(vq)) {
+		uk_pr_err("Failed to create the virtqueue: %d\n",
+			  PTR2ERR(vq));
+		goto err_exit;
 	}
 
-	return 0;
-}
-
-static __u8 vpci_legacy_pci_status_get(struct virtio_dev *vdev)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-
-	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
-	return virtio_cread8((void *) (unsigned long) vpdev->pci_base_addr,
-			     VIRTIO_PCI_STATUS);
-}
-
-static void vpci_legacy_pci_status_set(struct virtio_dev *vdev, __u8 status)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	__u8 curr_status = 0;
-
-	/* Reset should be performed using the reset interface */
-	UK_ASSERT(vdev || status != VIRTIO_CONFIG_STATUS_RESET);
-
-	vpdev = to_virtiopcimoderndev(vdev);
-	curr_status = vpci_legacy_pci_status_get(vdev);
-	status |= curr_status;
-	virtio_cwrite8((void *)(unsigned long) vpdev->pci_base_addr,
-		       VIRTIO_PCI_STATUS, status);
-}
-
-static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	__u8 status;
-
-	UK_ASSERT(vdev);
-
-	vpdev = to_virtiopcimoderndev(vdev);
-	/**
-	 * Resetting the device.
+	vrq = to_virtqueue_vring(vq);
+	/* Physical address of the queue */
+	/* TODOFS: refract:
+	 * crate a function in virtio_ring.c that returns these
 	 */
-	virtio_cwrite8((void *) (unsigned long)vpdev->pci_base_addr,
-		       20, VIRTIO_CONFIG_STATUS_RESET);
-	/**
-	 * Waiting for the resetting the device. Find a better way
-	 * of doing this instead of repeating register read.
-	 *
-	 * NOTE! Spec (4.1.4.3.2)
-	 * Need to check if we have to wait for the reset to happen.
-	 */
-	do {
-		status = virtio_cread8(
-				(void *)(unsigned long)vpdev->pci_base_addr,
-				20);
-	} while (status != VIRTIO_CONFIG_STATUS_RESET);
-}
+	desc_paddr = ukplat_virt_to_phys(vrq->vring.desc);
+	avail_paddr = ukplat_virt_to_phys(vrq->vring.avail);
+	used_paddr = ukplat_virt_to_phys(vrq->vring.used);
 
-static __u64 vpci_legacy_pci_features_get(struct virtio_dev *vdev)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-	__u64  features;
+	/* Select the queue of interest */
+	vpci_modern_write_common_2(vpdev,
+				VIRTIO_MODERN_COMMON_Q_SELECT, queue_id);
+	vpci_modern_write_common_8(vpdev,
+				VIRTIO_MODERN_COMMON_Q_DESCLO, desc_paddr);
+	vpci_modern_write_common_8(vpdev,
+				VIRTIO_MODERN_COMMON_Q_AVAILLO, avail_paddr);
+	vpci_modern_write_common_8(vpdev,
+				VIRTIO_MODERN_COMMON_Q_USEDLO, used_paddr);
 
-	UK_ASSERT(vdev);
+	flags = ukplat_lcpu_save_irqf();
+	UK_TAILQ_INSERT_TAIL(&vpdev->vdev.vqs, vq, next);
+	ukplat_lcpu_restore_irqf(flags);
 
-	vpdev = to_virtiopcimoderndev(vdev);
-	features = virtio_cread32((void *) (unsigned long)vpdev->pci_base_addr,
-				  VIRTIO_PCI_HOST_FEATURES);
-	return features;
-}
-
-/**
- * @brief feature negotiation
- *
- * @param vdev
- * @param features
- */
-static void vpci_legacy_pci_features_set(struct virtio_dev *vdev,
-					 __u64 features)
-{
-	struct virtio_pci_modern_dev *vpdev = NULL;
-
-	UK_ASSERT(vdev);
-	vpdev = to_virtiopcimoderndev(vdev);
-	/* Mask out features not supported by the virtqueue driver */
-	features = virtqueue_feature_negotiate(features);
-	virtio_cwrite32((void *) (unsigned long)vpdev->pci_base_addr,
-			VIRTIO_PCI_GUEST_FEATURES, (__u32)features);
-}
-
-
-
-/**
- * @brief
- *
- * @param pci_dev
- * @param cfg_type
- * @param [out] cap_offset
- * @return int
- */
-static int virtio_pci_modern_find_cap(struct pci_device *pci_dev,
-				      __u8 target_cfg_type, int *cap_offset)
-{
-	int rc;
-	uint8_t curr_cap, cfg_type, bar;
-
-	UK_ASSERT(pci_dev);
-
-	for (rc = arch_pci_find_cap(pci_dev,
-				    VIRTIO_PCI_CAP_VENDOR_ID,
-				    &curr_cap);
-	     rc == 0;
-	     rc = arch_pci_find_next_cap(pci_dev,
-	     				 VIRTIO_PCI_CAP_VENDOR_ID,
-					 curr_cap,
-					 &curr_cap)) {
-
-		/* Spec: MUST ignore any vendor-specific capability structure
-		 * which has a reserved bar value. */
-		PCI_CONF_READ_OFFSET(uint8_t, &bar, pci_dev->config_addr,
-			VIRTIO_PCI_CAP_BAR_OFFSET(curr_cap),
-			VIRTIO_PCI_CAP_BAR_SHIFT,
-			VIRTIO_PCI_CAP_BAR_MASK);
-		if (bar >= VIRTIO_PCI_MODERN_MAX_BARS)
-			continue;
-
-		PCI_CONF_READ_OFFSET(uint8_t, &cfg_type, pci_dev->config_addr,
-			VIRTIO_PCI_CAP_CFG_TYPE_OFFSET(curr_cap),
-			VIRTIO_PCI_CAP_CFG_TYPE_SHIFT,
-			VIRTIO_PCI_CAP_CFG_TYPE_MASK);
-		if (cfg_type == target_cfg_type) {
-			if (cap_offset != NULL)
-				*cap_offset = curr_cap;
-			break;
-		}
-	}
-
-	return rc;
-}
-
-static int virtio_pci_modern_probe_configs(struct pci_device *pci_dev)
-{
-	int rc = 0;
-
-	/*
-	 * These config capabilities must be present. The DEVICE_CFG
-	 * capability is only present if the device requires it.
-	 */
-
-	rc = virtio_pci_modern_find_cap(pci_dev,
-		VIRTIO_PCI_CAP_COMMON_CFG, NULL);
-	if (rc) {
-		uk_pr_err("cannot find COMMON_CFG capability\n");
-		goto exit;
-	}
-
-	rc = virtio_pci_modern_find_cap(pci_dev,
-		VIRTIO_PCI_CAP_NOTIFY_CFG, NULL);
-	if (rc) {
-		uk_pr_err("cannot find NOTIFY_CFG capability\n");
-		goto exit;
-	}
-
-	rc = virtio_pci_modern_find_cap(pci_dev,
-		VIRTIO_PCI_CAP_ISR_CFG, NULL);
-	if (rc) {
-		uk_pr_err("cannot find ISR_CFG capability\n");
-		goto exit;
-	}
-
-exit:
-	return rc;
+err_exit:
+	return vq;
 }
 
 /**
@@ -541,54 +1481,57 @@ exit:
  * calls the `virtio_pci_legacy_add_dev` method and then registers the
  * device on the virtio bus, using the `virtio_bus_register_device` method.
  *
- * @param pci_dev
+ * @param pdev
  * @return int
  */
-static int virtio_pci_modern_add_dev(struct pci_device *pci_dev)
+static int virtio_pci_modern_add_dev(struct pci_device *pdev)
 {
 	struct virtio_pci_modern_dev *vpci_dev = NULL;
 	int rc = 0;
 
-	UK_ASSERT(pci_dev != NULL);
+	UK_ASSERT(pdev != NULL);
 
 	/* Checking if the device is a modern PCI device*/
-	if (pci_dev->id.vendor_id != VENDOR_QUMRANET_VIRTIO) {
+	if (unlikely(pdev->id.vendor_id != VENDOR_QUMRANET_VIRTIO)) {
 		uk_pr_err("Device %04x does not match the driver\n",
-			  pci_dev->id.device_id);
+			  pdev->id.device_id);
 		rc = -ENXIO;
 		goto exit;
 	}
-	if (pci_dev->id.device_id < VIRTIO_PCI_MODERN_ID_START ||
-	    pci_dev->id.device_id > VIRTIO_PCI_MODERN_ID_END) {
+	if (unlikely(pdev->id.device_id < VIRTIO_MODERN_ID_START ||
+	    pdev->id.device_id > VIRTIO_MODERN_ID_END)) {
 		uk_pr_err("Virtio Device %04x does not match the driver\n",
-			  pci_dev->id.device_id);
-		rc = -ENXIO;
-		goto exit;
-	}
-	if (virtio_pci_modern_probe_configs(pci_dev) != 0) {
+			  pdev->id.device_id);
 		rc = -ENXIO;
 		goto exit;
 	}
 
 	vpci_dev = uk_malloc(a, sizeof(*vpci_dev));
-	if (!vpci_dev) {
+	if (unlikely(!vpci_dev)) {
 		uk_pr_err("Failed to allocate virtio-pci device\n");
 		return -ENOMEM;
 	}
 	/* Initializing the virtio pci device */
-	vpci_dev->pdev = pci_dev;
+	vpci_dev->pdev = pdev;
 	/* Initializing the virtio pci device */
 	vpci_dev->vdev.id.virtio_device_id =
-		pci_dev->id.device_id - VIRTIO_PCI_MODERN_ID_START;
+		pdev->id.device_id - VIRTIO_MODERN_ID_START;
 	vpci_dev->vdev.cops = &vpci_legacy_ops;
 
-	uk_pr_info("Added virtio-pci device %04x\n",
-		   pci_dev->id.device_id);
-	uk_pr_info("Added virtio-pci subsystem_device_id %04x\n",
-		   pci_dev->id.subsystem_device_id);
+	rc = vpci_modern_map_configs(vpci_dev);
+	if (unlikely(rc)) {
+		uk_pr_err("Cannot map configs for virtio device %04x \n",
+			  pdev->id.device_id);
+			  goto free_pci_dev;
+	}
 
-	rc = virtio_bus_register_modern_device(&vpci_dev->vdev);
-	if (rc != 0) {
+	uk_pr_info("Added virtio-pci device %04x\n",
+		   pdev->id.device_id);
+	uk_pr_info("Added virtio-pci subsystem_device_id %04x\n",
+		   pdev->id.subsystem_device_id);
+
+	rc = virtio_bus_register_device(&vpci_dev->vdev);
+	if (unlikely(rc != 0)) {
 		uk_pr_err("Failed to register the virtio device: %d\n", rc);
 		goto free_pci_dev;
 	}

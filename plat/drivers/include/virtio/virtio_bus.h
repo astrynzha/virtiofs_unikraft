@@ -33,6 +33,8 @@
 #ifndef __PLAT_DRV_VIRTIO_H
 #define __PLAT_DRV_VIRTIO_H
 
+#include "uk/assert.h"
+#include <stdint.h>
 #include <uk/config.h>
 #include <errno.h>
 #include <uk/errptr.h>
@@ -92,12 +94,16 @@ struct virtio_dev_id {
 struct virtio_config_ops {
 	/** Resetting the device */
 	void (*device_reset)(struct virtio_dev *vdev);
-	/** Set configuration option */
+	/** Write-access of the device-specific configuration */
 	int (*config_set)(struct virtio_dev *vdev, __u16 offset,
 			  const void *buf, __u32 len);
-	/** Get configuration option */
+	/** Read-access of the device-specific configuration */
 	int (*config_get)(struct virtio_dev *vdev, __u16 offset, void *buf,
 			  __u32 len, __u8 type_len);
+	int (*modern_config_get) (struct virtio_dev *vdev, __u8 offset,
+				  void *buf, __u8 type_len);
+	int (*modern_config_set) (struct virtio_dev *vdev, __u8 offset,
+				  const void *buf, __u8 type_len);
 	/** Get the feature */
 	__u64 (*features_get)(struct virtio_dev *vdev);
 	/** Set the feature */
@@ -215,6 +221,20 @@ static inline int virtio_dev_status_update(struct virtio_dev *vdev, __u8 status)
 	return rc;
 }
 
+static inline uint8_t virtio_dev_status_get(struct virtio_dev *vdev)
+{
+	int rc = -ENOTSUP;
+	uint8_t status;
+
+	UK_ASSERT(vdev);
+
+	if (likely(vdev->cops->status_get)) {
+		status = vdev->cops->status_get(vdev);
+		return status;
+	}
+	return rc;
+}
+
 /**
  * The function to get the feature supported by the device.
  * @param vdev
@@ -241,7 +261,7 @@ static inline __u64 virtio_feature_get(struct virtio_dev *vdev)
  * @param feature
  *	A bit map of the feature negotiated.
  */
-static inline void virtio_feature_set(struct virtio_dev *vdev, __u32 feature)
+static inline void virtio_feature_set(struct virtio_dev *vdev, __u64 feature)
 {
 	UK_ASSERT(vdev);
 
@@ -274,6 +294,32 @@ static inline int virtio_config_get(struct virtio_dev *vdev, __u16 offset,
 
 	if (likely(vdev->cops->config_get))
 		rc = vdev->cops->config_get(vdev, offset, buf, len, type_len);
+
+	return rc;
+}
+
+static inline int virtio_modern_config_get(struct virtio_dev *vdev, __u8 offset,
+					   void *buf, __u8 type_len)
+{
+	int rc = -ENOTSUP;
+
+	UK_ASSERT(vdev);
+
+	if (likely(vdev->cops->modern_config_get))
+		rc = vdev->cops->modern_config_get(vdev, offset, buf, type_len);
+
+	return rc;
+}
+
+static inline int virtio_modern_config_set(struct virtio_dev *vdev, __u8 offset,
+					   const void *buf, __u8 type_len)
+{
+	int rc = -ENOTSUP;
+
+	UK_ASSERT(vdev);
+
+	if (likely(vdev->cops->modern_config_set))
+		rc = vdev->cops->modern_config_set(vdev, offset, buf, type_len);
 
 	return rc;
 }

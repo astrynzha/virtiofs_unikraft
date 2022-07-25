@@ -60,6 +60,35 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
+ * Copyright 1997, Stefan Esser <se@freebsd.org>
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice unmodified, this list of conditions, and the following
+ *    disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD$
+ *
+ */
 
 #ifndef __UKPLAT_COMMON_PCI_BUS_H__
 #define __UKPLAT_COMMON_PCI_BUS_H__
@@ -332,6 +361,26 @@ static struct pci_bus_handler ph __unused;
 #define PCI_BASE_ADDRESS_3	0x1c	/* 32 bits */
 #define PCI_BASE_ADDRESS_4	0x20	/* 32 bits */
 #define PCI_BASE_ADDRESS_5	0x24	/* 32 bits */
+
+#define PCI_BASE_ADDRESS_SHIFT	0
+#define PCI_BASE_ADDRESS_MASK	0xFFFFFFFF
+
+#define PCI_BAR_IO_ADDR_SHIFT	0
+#define PCI_BAR_IO_ADDR_MASK	0xFFFFFFFC
+#define PCI_BAR_MEM_TYPE_SHIFT	1
+#define PCI_BAR_MEM_TYPE_MASK	0x00000003
+#define PCI_BAR_MEM_32_SHIFT	0
+#define PCI_BAR_MEM_32_MASK	0xFFFFFFF0
+/* second BAR of a 64-bit memory address */
+#define PCI_BAR_MEM_64_MASK	0xFFFFFFFF
+
+
+#define	PCI_BAR_IO(x)	(((x) & PCI_BAR_SPACE_INDICATOR) == PCI_BAR_IO_SPACE)
+#define	PCI_BAR_MEM(x)	(((x) & PCI_BAR_SPACE_INDICATOR) == PCI_BAR_MEM_SPACE)
+#define PCI_BAR_SPACE_INDICATOR 0x00000001
+#define	PCI_BAR_MEM_SPACE	0
+#define	PCI_BAR_IO_SPACE	1
+
 
 #define PCI_VENDOR_ID		0x0
 #define PCI_DEV_ID			0x02

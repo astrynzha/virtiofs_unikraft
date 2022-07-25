@@ -1,0 +1,1699 @@
++l fu
+Function "fu" not defined.
++i fu
+All defined functions:
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/arch/x86/x86_64/include/uk/asm/atomic.h:
+70:	static unsigned int ukarch_ffsl(unsigned long);
+85:	static unsigned int ukarch_flsl(unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/arch/x86/x86_64/include/uk/asm/lcpu.h:
+120:	static unsigned long ukarch_read_sp(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/arch/x86/x86_64/include/uk/asm/tls.h:
+51:	static __sz ukarch_tls_area_align(void);
+59:	static void ukarch_tls_area_copy(void *);
+42:	static __sz ukarch_tls_area_size(void);
+71:	static void *ukarch_tls_pointer(void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/bitmap.h:
+119:	static void uk_bitmap_clear(unsigned long *, unsigned int, int);
+96:	static void uk_bitmap_set(unsigned long *, unsigned int, int);
+37:	static void uk_bitmap_zero(unsigned long *, const unsigned int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/bitops.h:
+278:	static int __uk_test_and_clear_bit(long, volatile unsigned long *);
+322:	static int __uk_test_and_set_bit(long, volatile unsigned long *);
+206:	static unsigned long uk_find_next_zero_bit(const unsigned long *, unsigned long, unsigned long);
+363:	static int uk_test_bit(int, const volatile unsigned long *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/event.h:
+263:	static int uk_raise_event_ptr(struct uk_event *, void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/list.h:
+57:	static void UK_INIT_LIST_HEAD(struct uk_list_head *);
+113:	static void __uk_list_add(struct uk_list_head *, struct uk_list_head *, struct uk_list_head *);
+77:	static void __uk_list_del(struct uk_list_head *, struct uk_list_head *);
+317:	static void uk_hlist_add_head(struct uk_hlist_node *, struct uk_hlist_head *);
+300:	static void uk_hlist_del(struct uk_hlist_node *);
+201:	static void uk_list_add(struct uk_list_head *, struct uk_list_head *);
+207:	static void uk_list_add_tail(struct uk_list_head *, struct uk_list_head *);
+90:	static void uk_list_del(struct uk_list_head *);
+123:	static void uk_list_del_init(struct uk_list_head *);
+63:	static int uk_list_empty(const struct uk_list_head *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/plat/memory.h:
+99:	static int ukplat_memregion_find_next(int, int, struct ukplat_memregion_desc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/plat/thread.h:
+81:	
+    static void ukplat_thread_ctx_init(struct ukplat_ctx_callbacks *, void *, unsigned long, unsigned long);
+73:	static __sz ukplat_thread_ctx_size(struct ukplat_ctx_callbacks *);
+96:	static void ukplat_thread_ctx_start(struct ukplat_ctx_callbacks *, void *);
+106:	static void ukplat_thread_ctx_switch(struct ukplat_ctx_callbacks *, void *, void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/include/uk/refcount.h:
+79:	static void uk_refcount_acquire(__atomic *);
+67:	static void uk_refcount_init(__atomic *, __u32);
+148:	static __u32 uk_refcount_read(const __atomic *);
+94:	static int uk_refcount_release(__atomic *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/9pfs/9pfs_vfsops.c:
+94:	static int uk_9pfs_mount(struct mount *, const char *, int, const void *);
+75:	static int uk_9pfs_parse_options(struct uk_9pfs_mount_data *, const void *);
+167:	static void uk_9pfs_release_tree_fids(struct dentry *);
+177:	static int uk_9pfs_unmount(struct mount *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/9pfs/9pfs_vnops.c:
+128:	int uk_9pfs_allocate_vnode_data(struct vnode *, struct uk_9pfid *);
+144:	void uk_9pfs_free_vnode_data(struct vnode *);
+200:	static int uk_9pfs_close(struct vnode *, struct vfscore_file *);
+302:	static int uk_9pfs_create(struct vnode *, char *, mode_t);
+283:	static int uk_9pfs_create_generic(struct vnode *, char *, mode_t);
+95:	static int uk_9pfs_dttype_from_mode(int);
+536:	static int uk_9pfs_getattr(struct vnode *, struct vattr *);
+275:	static int uk_9pfs_inactive(struct vnode *);
+123:	static uint64_t uk_9pfs_ino(struct uk_9p_stat *);
+214:	static int uk_9pfs_lookup(struct vnode *, char *, struct vnode **);
+332:	static int uk_9pfs_mkdir(struct vnode *, char *, mode_t);
+160:	static int uk_9pfs_open(struct vfscore_file *);
+49:	static uint32_t uk_9pfs_open_mode_from_posix_flags(int);
+84:	static uint32_t uk_9pfs_perm_from_posix_mode(mode_t);
+102:	static int uk_9pfs_posix_mode_from_mode(int);
+69:	static int uk_9pfs_posix_perm_from_mode(int);
+430:	static int uk_9pfs_read(struct vnode *, struct vfscore_file *, struct uio *, int);
+346:	static int uk_9pfs_readdir(struct vnode *, struct vfscore_file *, struct dirent *);
+318:	static int uk_9pfs_remove(struct vnode *, struct vnode *, char *);
+310:	static int uk_9pfs_remove_generic(struct vnode *, struct vnode *);
+340:	static int uk_9pfs_rmdir(struct vnode *, struct vnode *, char *);
+116:	static int uk_9pfs_vtype_from_mode(int);
+469:	static int uk_9pfs_write(struct vnode *, struct uio *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/asprintf.c:
+42:	int asprintf(char **, const char *, ...);
+28:	int vasprintf(char **, const char *, struct __va_list_tag *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/errno.c:
+42:	int *_nolibc_errno(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/getopt.c:
+576:	int getopt(int, char * const *, const char *);
+595:	int getopt_long(int, char * const *, const char *, const struct option *, int *);
+608:	int getopt_long_only(int, char * const *, const char *, const struct option *, int *);
+136:	static int gcd(int, int);
+360:	static int getopt_internal(int, char * const *, const char *, const struct option *, int *, int);
+193:	
+    static int parse_long_options(char * const *, const char *, const struct option *, int *, int, int);
+156:	static void permute_args(int, int, int, char * const *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/include/ctype.h:
+75:	static int toupper(int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/include/stdlib.h:
+84:	static void *calloc(size_t, size_t);
+76:	static void free(void *);
+68:	static void *malloc(size_t);
+93:	static void *realloc(void *, size_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/musl-imported/src/signal/psignal.c:
+6:	void psignal(int, const char *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/musl-imported/src/string/strsignal.c:
+61:	char *strsignal(int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/qsort.c:
+82:	void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
+75:	static char *med3(char *, char *, char *, int (*)(const void *, const void *));
+52:	static void swapfunc(char *, char *, int, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/sscanf.c:
+631:	int sscanf(const char *, const char *, ...);
+175:	int vsscanf(const char *, const char *, struct __va_list_tag *);
+89:	static const unsigned char *__sccl(char *, const unsigned char *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/stdio.c:
+481:	int fflush(FILE *);
+452:	int fprintf(FILE *, const char *, ...);
+487:	int fputc(int, FILE *);
+469:	int printf(const char *, ...);
+503:	int putchar(int);
+406:	int snprintf(char *, size_t, const char *, ...);
+418:	int sprintf(char *, const char *, ...);
+430:	int vfprintf(FILE *, const char *, struct __va_list_tag *);
+464:	int vprintf(const char *, struct __va_list_tag *);
+101:	int vsnprintf(char *, size_t, const char *, struct __va_list_tag *);
+401:	int vsprintf(char *, const char *, struct __va_list_tag *);
+82:	static char *ksprintn(char *, uintmax_t, int, int *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/stdlib.c:
+418:	void abort(void);
+407:	int atoi(const char *);
+135:	long strtol(const char *, char **, int);
+237:	long long strtoll(const char *, char **, int);
+70:	unsigned long strtoul(const char *, char **, int);
+338:	unsigned long long strtoull(const char *, char **, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/nolibc/string.c:
+85:	void *memchr(const void *, int, size_t);
+126:	int memcmp(const void *, const void *, size_t);
+65:	void *memcpy(void *, const void *, size_t);
+107:	void *memmove(void *, const void *, size_t);
+96:	void *memrchr(const void *, int, size_t);
+75:	void *memset(void *, int, size_t);
+222:	char *strchr(const char *, int);
+203:	char *strchrnul(const char *, int);
+184:	int strcmp(const char *, const char *);
+165:	char *strcpy(char *, const char *);
+233:	size_t strcspn(const char *, const char *);
+317:	char *strdup(const char *);
+679:	char *strerror(int);
+365:	char *strerror_r(int, char *, size_t);
+356:	size_t strlcat(char *, const char *, size_t);
+325:	size_t strlcpy(char *, const char *, size_t);
+139:	size_t strlen(const char *);
+690:	char *strncat(char *, const char *, size_t);
+170:	int strncmp(const char *, const char *, size_t);
+150:	char *strncpy(char *, const char *, size_t);
+301:	char *strndup(const char *, size_t);
+144:	size_t strnlen(const char *, size_t);
+228:	char *strrchr(const char *, int);
+249:	size_t strspn(const char *, const char *);
+269:	char *strtok(char * restrict, const char * restrict);
+286:	char *strtok_r(char * restrict, const char * restrict, char ** restrict);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/9p.c:
+130:	struct uk_9pfid *uk_9p_attach(struct uk_9pdev *, uint32_t, const char *, const char *, uint32_t);
+354:	int uk_9p_clunk(struct uk_9pdev *, struct uk_9pfid *);
+294:	
+    int uk_9p_create(struct uk_9pdev *, struct uk_9pfid *, const char *, uint32_t, uint32_t, const char *);
+178:	int uk_9p_flush(struct uk_9pdev *, uint16_t);
+267:	int uk_9p_open(struct uk_9pdev *, struct uk_9pfid *, uint32_t);
+377:	int64_t uk_9p_read(struct uk_9pdev *, struct uk_9pfid *, uint64_t, uint32_t, char *);
+331:	int uk_9p_remove(struct uk_9pdev *, struct uk_9pfid *);
+443:	struct uk_9preq *uk_9p_stat(struct uk_9pdev *, struct uk_9pfid *, struct uk_9p_stat *);
+87:	struct uk_9preq *uk_9p_version(struct uk_9pdev *, const char *, struct uk_9p_str *);
+198:	struct uk_9pfid *uk_9p_walk(struct uk_9pdev *, struct uk_9pfid *, const char *);
+411:	int64_t uk_9p_write(struct uk_9pdev *, struct uk_9pfid *, uint64_t, uint32_t, const char *);
+471:	int uk_9p_wstat(struct uk_9pdev *, struct uk_9pfid *, struct uk_9p_stat *);
+75:	static struct uk_9preq *request_create(struct uk_9pdev *, uint8_t);
+69:	static int send_and_wait_no_zc(struct uk_9pdev *, struct uk_9preq *);
+48:	
+    static int send_and_wait_zc(struct uk_9pdev *, struct uk_9preq *, enum uk_9preq_zcdir, void *, uint32_t, uint32_t);
+44:	static void uk_9p_trace_ready(uint16_t);
+46:	static void uk_9p_trace_received(uint16_t);
+43:	static void uk_9p_trace_request_allocated();
+42:	static void uk_9p_trace_request_create();
+45:	static void uk_9p_trace_sent(uint16_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/9pdev.c:
+207:	
+    struct uk_9pdev *uk_9pdev_connect(const struct uk_9pdev_trans *, const char *, const char *, struct uk_alloc *);
+260:	int uk_9pdev_disconnect(struct uk_9pdev *);
+428:	struct uk_9pfid *uk_9pdev_fid_create(struct uk_9pdev *);
+448:	void uk_9pdev_fid_release(struct uk_9pfid *);
+482:	uint32_t uk_9pdev_get_msize(struct uk_9pdev *);
+324:	struct uk_9preq *uk_9pdev_req_create(struct uk_9pdev *, uint8_t);
+383:	struct uk_9preq *uk_9pdev_req_lookup(struct uk_9pdev *, uint16_t);
+405:	int uk_9pdev_req_remove(struct uk_9pdev *, struct uk_9preq *);
+416:	void uk_9pdev_req_to_freelist(struct uk_9pdev *, struct uk_9preq *);
+283:	int uk_9pdev_request(struct uk_9pdev *, struct uk_9preq *);
+472:	_Bool uk_9pdev_set_msize(struct uk_9pdev *, uint32_t);
+317:	void uk_9pdev_xmit_notify(struct uk_9pdev *);
+84:	static void _fid_mgmt_add_fid_locked(struct uk_9pdev_fid_mgmt *, struct uk_9pfid *);
+108:	static void _fid_mgmt_cleanup(struct uk_9pdev_fid_mgmt *);
+90:	static void _fid_mgmt_del_fid_locked(struct uk_9pdev_fid_mgmt *, struct uk_9pfid *, _Bool);
+52:	static void _fid_mgmt_init(struct uk_9pdev_fid_mgmt *);
+60:	
+    static int _fid_mgmt_next_fid_locked(struct uk_9pdev_fid_mgmt *, struct uk_9pdev *, struct uk_9pfid **);
+135:	static void _req_mgmt_add_req_locked(struct uk_9pdev_req_mgmt *, struct uk_9preq *);
+175:	static void _req_mgmt_cleanup(struct uk_9pdev_req_mgmt *);
+157:	static void _req_mgmt_del_req_locked(struct uk_9pdev_req_mgmt *, struct uk_9preq *);
+143:	static struct uk_9preq *_req_mgmt_from_freelist_locked(struct uk_9pdev_req_mgmt *);
+127:	static void _req_mgmt_init(struct uk_9pdev_req_mgmt *);
+170:	static uint16_t _req_mgmt_next_tag_locked(struct uk_9pdev_req_mgmt *);
+164:	static void _req_mgmt_req_to_freelist_locked(struct uk_9pdev_req_mgmt *, struct uk_9preq *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/9pdev_trans.c:
+64:	struct uk_9pdev_trans *uk_9pdev_trans_by_name(const char *);
+76:	struct uk_9pdev_trans *uk_9pdev_trans_get_default(void);
+44:	int uk_9pdev_trans_register(struct uk_9pdev_trans *);
+81:	void uk_9pdev_trans_set_default(struct uk_9pdev_trans *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/9pfid.c:
+39:	struct uk_9pfid *uk_9pfid_alloc(struct uk_9pdev *);
+55:	void uk_9pfid_get(struct uk_9pfid *);
+60:	int uk_9pfid_put(struct uk_9pfid *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/9preq.c:
+201:	int uk_9preq_error(struct uk_9preq *);
+71:	void uk_9preq_get(struct uk_9preq *);
+47:	void uk_9preq_init(struct uk_9preq *);
+76:	int uk_9preq_put(struct uk_9preq *);
+87:	int uk_9preq_ready(struct uk_9preq *, enum uk_9preq_zcdir, void *, uint32_t, uint32_t);
+137:	int uk_9preq_receive_cb(struct uk_9preq *, uint32_t);
+184:	int uk_9preq_waitreply(struct uk_9preq *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/include/uk/9p_core.h:
+169:	static int uk_9p_str_equal(const struct uk_9p_str *, const char *);
+182:	static void uk_9p_str_init(struct uk_9p_str *, const char *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uk9p/include/uk/9preq.h:
+385:	static int uk_9preq_read16(struct uk_9preq *, uint16_t *);
+386:	static int uk_9preq_read32(struct uk_9preq *, uint32_t *);
+387:	static int uk_9preq_read64(struct uk_9preq *, uint64_t *);
+384:	static int uk_9preq_read8(struct uk_9preq *, uint8_t *);
+298:	static int uk_9preq_readbuf(struct uk_9preq *, void *, uint32_t);
+391:	static int uk_9preq_readqid(struct uk_9preq *, struct uk_9p_qid *);
+419:	static int uk_9preq_readstat(struct uk_9preq *, struct uk_9p_stat *);
+403:	static int uk_9preq_readstr(struct uk_9preq *, struct uk_9p_str *);
+316:	static int uk_9preq_write16(struct uk_9preq *, uint16_t);
+317:	static int uk_9preq_write32(struct uk_9preq *, uint32_t);
+318:	static int uk_9preq_write64(struct uk_9preq *, uint64_t);
+315:	static int uk_9preq_write8(struct uk_9preq *, uint8_t);
+287:	static int uk_9preq_writebuf(struct uk_9preq *, const void *, uint32_t);
+322:	static int uk_9preq_writeqid(struct uk_9preq *, struct uk_9p_qid *);
+345:	static int uk_9preq_writestat(struct uk_9preq *, struct uk_9p_stat *);
+334:	static int uk_9preq_writestr(struct uk_9preq *, struct uk_9p_str *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukalloc/alloc.c:
+296:	__ssz uk_alloc_availmem_ifpages(struct uk_alloc *);
+555:	__sz uk_alloc_availmem_total(void);
+274:	__ssz uk_alloc_maxalloc_ifpages(struct uk_alloc *);
+542:	long uk_alloc_pavailmem_compat(struct uk_alloc *);
+570:	unsigned long uk_alloc_pavailmem_total(void);
+529:	long uk_alloc_pmaxalloc_compat(struct uk_alloc *);
+50:	int uk_alloc_register(struct uk_alloc *);
+500:	void *uk_calloc_compat(struct uk_alloc *, __sz, __sz);
+152:	void uk_free_ifpages(struct uk_alloc *, void *);
+127:	void *uk_malloc_ifpages(struct uk_alloc *, __sz);
+518:	void *uk_memalign_compat(struct uk_alloc *, __sz, __sz);
+461:	void *uk_palloc_compat(struct uk_alloc *, unsigned long);
+450:	void uk_pfree_compat(struct uk_alloc *, void *, unsigned long);
+196:	int uk_posix_memalign_ifpages(struct uk_alloc *, void **, __sz, __sz);
+477:	void *uk_realloc_compat(struct uk_alloc *, void *, __sz);
+167:	void *uk_realloc_ifpages(struct uk_alloc *, void *, __sz);
+82:	static struct metadata_ifpages *uk_get_metadata(const void *);
+107:	static __sz uk_getmallocsize(const void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukalloc/include/uk/alloc.h:
+262:	static int uk_alloc_addmem(struct uk_alloc *, void *, __sz);
+290:	static __ssz uk_alloc_availmem(struct uk_alloc *);
+135:	static struct uk_alloc *uk_alloc_get_default(void);
+273:	static __ssz uk_alloc_maxalloc(struct uk_alloc *);
+298:	static long uk_alloc_pavailmem(struct uk_alloc *);
+281:	static long uk_alloc_pmaxalloc(struct uk_alloc *);
+164:	static void *uk_calloc(struct uk_alloc *, __sz, __sz);
+157:	static void *uk_do_calloc(struct uk_alloc *, __sz, __sz);
+225:	static void uk_do_free(struct uk_alloc *, void *);
+142:	static void *uk_do_malloc(struct uk_alloc *, __sz);
+236:	static void *uk_do_palloc(struct uk_alloc *, unsigned long);
+249:	static void uk_do_pfree(struct uk_alloc *, void *, unsigned long);
+193:	static int uk_do_posix_memalign(struct uk_alloc *, void **, __sz, __sz);
+177:	static void *uk_do_realloc(struct uk_alloc *, void *, __sz);
+231:	static void uk_free(struct uk_alloc *, void *);
+148:	static void *uk_malloc(struct uk_alloc *, __sz);
+242:	static void *uk_palloc(struct uk_alloc *, unsigned long);
+256:	static void uk_pfree(struct uk_alloc *, void *, unsigned long);
+200:	static int uk_posix_memalign(struct uk_alloc *, void **, __sz, __sz);
+184:	static void *uk_realloc(struct uk_alloc *, void *, __sz);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukallocbbuddy/bbuddy.c:
+492:	struct uk_alloc *uk_allocbbuddy_init(void *, size_t);
+123:	static unsigned long allocated_in_map(struct uk_bbpalloc *, unsigned long);
+389:	static int bbuddy_addmem(struct uk_alloc *, void *, size_t);
+237:	static void *bbuddy_palloc(struct uk_alloc *, unsigned long);
+379:	static long bbuddy_pavailmem(struct uk_alloc *);
+295:	static void bbuddy_pfree(struct uk_alloc *, void *, unsigned long);
+359:	static long bbuddy_pmaxalloc(struct uk_alloc *);
+141:	static void map_alloc(struct uk_bbpalloc *, uintptr_t, unsigned long);
+179:	static void map_free(struct uk_bbpalloc *, uintptr_t, unsigned long);
+100:	static struct uk_bbpalloc_memr *map_get_memr(struct uk_bbpalloc *, unsigned long);
+218:	static unsigned long num_pages_to_order(unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukargparse/argparse.c:
+46:	int uk_argnparse(char *, __sz, char **, int);
+38:	static void left_shift(char *, __sz, __sz);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/banner.c:
+78:	void print_banner(FILE *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:
+181:	void ukplat_entry(int, char **);
+163:	void ukplat_entry_argp(char *, char *, __sz);
+84:	static void main_thread_func(void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/version.c:
+5:	void uk_version(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/weak_main.c:
+6:	int main(int, char **);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:
+47:	void _uk_bus_register(struct uk_bus *);
+57:	void _uk_bus_unregister(struct uk_bus *);
+67:	unsigned int uk_bus_count(void);
+72:	static int uk_bus_init(struct uk_bus *, struct uk_alloc *);
+93:	static unsigned int uk_bus_init_all(struct uk_alloc *);
+132:	static int uk_bus_lib_init(void);
+83:	static int uk_bus_probe(struct uk_bus *);
+117:	static unsigned int uk_bus_probe_all(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukdebug/hexdump.c:
+244:	
+    void _uk_hexdumpd(const char *, const char *, unsigned int, const void *, size_t, size_t, int, unsigned int, const char *);
+256:	
+    void _uk_hexdumpk(int, const char *, const char *, unsigned int, const void *, size_t, size_t, int, unsigned int, const char *);
+234:	int uk_hexdumpf(FILE *, const void *, size_t, size_t, int, unsigned int, const char *);
+223:	int uk_hexdumpsn(char *, size_t, const void *, size_t, size_t, int, unsigned int, const char *);
+147:	static int _hxd(struct out_dev *, const void *, size_t, size_t, int, unsigned int, const char *);
+52:	static size_t _hxd_line(struct out_dev *, const unsigned char *, size_t, size_t, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukdebug/include/uk/asmdump.h:
+148:	static void uk_asmdumpk(int, const void *, unsigned int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukdebug/include/uk/print.h:
+121:	static void uk_printd(const char *, ...);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukdebug/outf.c:
+43:	int outf(struct out_dev *, const char *, ...);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukdebug/print.c:
+275:	void _uk_printd(const char *, const char *, unsigned int, const char *, ...);
+302:	void _uk_printk(int, const char *, const char *, unsigned int, const char *, ...);
+264:	void _uk_vprintd(const char *, const char *, unsigned int, const char *, struct __va_list_tag *);
+292:	
+    void _uk_vprintk(int, const char *, const char *, unsigned int, const char *, struct __va_list_tag *);
+113:	static void _print_timestamp(struct _vprint_console *);
+144:	
+    static void _vprint(struct _vprint_console *, int, const char *, const char *, unsigned int, const char *, struct __va_list_tag *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uklock/include/uk/mutex.h:
+98:	static void uk_mutex_lock(struct uk_mutex *);
+165:	static void uk_mutex_unlock(struct uk_mutex *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uklock/mutex.c:
+11:	void uk_mutex_init(struct uk_mutex *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uklock/semaphore.c:
+3:	void uk_semaphore_init(struct uk_semaphore *, long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/include/uk/sched.h:
+118:	static int uk_sched_thread_add(struct uk_sched *, struct uk_thread *, const uk_thread_attr_t *);
+143:	static void uk_sched_thread_blocked(struct uk_sched *, struct uk_thread *);
+168:	static int uk_sched_thread_get_prio(struct uk_sched *, const struct uk_thread *, prio_t *);
+190:	static int uk_sched_thread_get_timeslice(struct uk_sched *, const struct uk_thread *, int *);
+133:	static int uk_sched_thread_remove(struct uk_sched *, struct uk_thread *);
+157:	static int uk_sched_thread_set_prio(struct uk_sched *, struct uk_thread *, prio_t);
+179:	static int uk_sched_thread_set_timeslice(struct uk_sched *, struct uk_thread *, int);
+259:	static void uk_sched_thread_switch(struct uk_sched *, struct uk_thread *, struct uk_thread *);
+150:	static void uk_sched_thread_woken(struct uk_sched *, struct uk_thread *);
+106:	static void uk_sched_yield(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/include/uk/thread.h:
+99:	static struct uk_thread *uk_thread_current(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/include/uk/wait.h:
+60:	static void uk_waitq_add(struct uk_waitq *, struct uk_waitq_entry *);
+40:	static void uk_waitq_init(struct uk_waitq *);
+70:	static void uk_waitq_remove(struct uk_waitq *, struct uk_waitq_entry *);
+162:	static void uk_waitq_wake_up(struct uk_waitq *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/sched.c:
+293:	int sched_yield();
+122:	struct uk_sched *uk_sched_create(struct uk_alloc *, size_t);
+51:	struct uk_sched *uk_sched_default_init(struct uk_alloc *);
+83:	struct uk_sched *uk_sched_get_default(void);
+174:	void uk_sched_idle_init(struct uk_sched *, void *, void (*)(void *));
+66:	int uk_sched_register(struct uk_sched *);
+88:	int uk_sched_set_default(struct uk_sched *);
+142:	void uk_sched_start(struct uk_sched *);
+204:	
+    struct uk_thread *uk_sched_thread_create(struct uk_sched *, const char *, const uk_thread_attr_t *, void (*)(void *), void *);
+253:	void uk_sched_thread_destroy(struct uk_sched *, struct uk_thread *);
+283:	void uk_sched_thread_exit(void);
+269:	void uk_sched_thread_kill(struct uk_sched *, struct uk_thread *);
+274:	void uk_sched_thread_sleep(__nsec);
+293:	long uk_syscall_e_sched_yield();
+293:	long uk_syscall_r_sched_yield();
+293:	static int __uk_syscall_r_sched_yield();
+148:	static void *create_stack(struct uk_alloc *);
+161:	static void *uk_thread_tls_create(struct uk_alloc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/thread.c:
+232:	void uk_thread_block(struct uk_thread *);
+225:	void uk_thread_block_timeout(struct uk_thread *, __nsec);
+280:	int uk_thread_detach(struct uk_thread *);
+250:	void uk_thread_exit(struct uk_thread *);
+199:	void uk_thread_fini(struct uk_thread *, struct uk_alloc *);
+297:	int uk_thread_get_prio(const struct uk_thread *, prio_t *);
+313:	int uk_thread_get_timeslice(const struct uk_thread *, int *);
+110:	
+    int uk_thread_init(struct uk_thread *, struct ukplat_ctx_callbacks *, struct uk_alloc *, const char *, void *, void *, void (*)(void *), void *);
+289:	int uk_thread_set_prio(struct uk_thread *, prio_t);
+305:	int uk_thread_set_timeslice(struct uk_thread *, int);
+262:	int uk_thread_wait(struct uk_thread *);
+237:	void uk_thread_wake(struct uk_thread *);
+51:	static void init_sp(unsigned long *, char *, void (*)(void *), void *);
+45:	static void stack_push(unsigned long *, unsigned long);
+214:	static void uk_thread_block_until(struct uk_thread *, __snsec);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksched/thread_attr.c:
+52:	int uk_thread_attr_fini(uk_thread_attr_t *);
+77:	int uk_thread_attr_get_detachstate(const uk_thread_attr_t *, int *);
+106:	int uk_thread_attr_get_prio(const uk_thread_attr_t *, prio_t *);
+129:	int uk_thread_attr_get_timeslice(const uk_thread_attr_t *, __nsec *);
+40:	int uk_thread_attr_init(uk_thread_attr_t *);
+60:	int uk_thread_attr_set_detachstate(uk_thread_attr_t *, int);
+90:	int uk_thread_attr_set_prio(uk_thread_attr_t *, prio_t);
+116:	int uk_thread_attr_set_timeslice(uk_thread_attr_t *, __nsec);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukschedcoop/schedcoop.c:
+227:	struct uk_sched *uk_schedcoop_init(struct uk_alloc *);
+208:	static void idle_thread_fn(void *);
+56:	static void schedcoop_schedule(struct uk_sched *);
+141:	static int schedcoop_thread_add(struct uk_sched *, struct uk_thread *, const uk_thread_attr_t *);
+182:	static void schedcoop_thread_blocked(struct uk_sched *, struct uk_thread *);
+156:	static void schedcoop_thread_remove(struct uk_sched *, struct uk_thread *);
+194:	static void schedcoop_thread_woken(struct uk_sched *, struct uk_thread *);
+222:	static void schedcoop_yield(struct uk_sched *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksglist/include/uk/sglist.h:
+80:	static void uk_sglist_init(struct uk_sglist *, uint16_t, struct uk_sglist_seg *);
+94:	static void uk_sglist_reset(struct uk_sglist *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uksglist/sglist.c:
+298:	struct uk_sglist *uk_sglist_alloc(struct uk_alloc *, int);
+188:	int uk_sglist_append(struct uk_sglist *, void *, size_t);
+206:	int uk_sglist_append_sglist(struct uk_sglist *, const struct uk_sglist *, size_t, size_t);
+325:	struct uk_sglist *uk_sglist_build(struct uk_alloc *, void *, size_t);
+352:	struct uk_sglist *uk_sglist_clone(struct uk_sglist *, struct uk_alloc *);
+164:	int uk_sglist_count(void *, size_t);
+317:	void uk_sglist_free(struct uk_sglist *, struct uk_alloc *);
+261:	int uk_sglist_join(struct uk_sglist *, struct uk_sglist *);
+248:	size_t uk_sglist_length(struct uk_sglist *);
+446:	int uk_sglist_slice(struct uk_sglist *, struct uk_sglist **, struct uk_alloc *, size_t, size_t);
+374:	int uk_sglist_split(struct uk_sglist *, struct uk_sglist **, struct uk_alloc *, size_t);
+114:	static int _sglist_append_buf(struct uk_sglist *, void *, size_t, size_t *);
+89:	static int _sglist_append_range(struct uk_sglist *, struct uk_sglist_seg **, __paddr_t, size_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/musl-imported/src/__month_to_secs.c:
+1:	int __month_to_secs(int, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/musl-imported/src/__secs_to_tm.c:
+11:	int __secs_to_tm(long long, struct tm *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/musl-imported/src/__tm_to_secs.c:
+3:	long long __tm_to_secs(const struct tm *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/musl-imported/src/__year_to_secs.c:
+1:	long long __year_to_secs(long long, int *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/musl-imported/src/timegm.c:
+8:	time_t timegm(struct tm *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/time.c:
+142:	int clock_getres(clockid_t, struct timespec *);
+149:	int clock_gettime(clockid_t, struct timespec *);
+180:	int clock_settime(clockid_t, const struct timespec *);
+130:	int gettimeofday(struct timeval *, void *);
+65:	int nanosleep(const struct timespec *, struct timespec *);
+192:	int setitimer(int, const struct itimerval *, struct itimerval *);
+108:	unsigned int sleep(unsigned int);
+120:	time_t time(time_t *);
+187:	int times(struct tm *);
+142:	long uk_syscall_e_clock_getres(long, long);
+149:	long uk_syscall_e_clock_gettime(long, long);
+180:	long uk_syscall_e_clock_settime(long, long);
+130:	long uk_syscall_e_gettimeofday(long, long);
+65:	long uk_syscall_e_nanosleep(long, long);
+192:	long uk_syscall_e_setitimer(long, long, long);
+120:	long uk_syscall_e_time(long);
+187:	long uk_syscall_e_times(long);
+142:	long uk_syscall_r_clock_getres(long, long);
+149:	long uk_syscall_r_clock_gettime(long, long);
+180:	long uk_syscall_r_clock_settime(long, long);
+130:	long uk_syscall_r_gettimeofday(long, long);
+65:	long uk_syscall_r_nanosleep(long, long);
+192:	long uk_syscall_r_setitimer(long, long, long);
+120:	long uk_syscall_r_time(long);
+187:	long uk_syscall_r_times(long);
+96:	int usleep(useconds_t);
+142:	static int __uk_syscall_r_clock_getres(clockid_t, struct timespec *);
+149:	static int __uk_syscall_r_clock_gettime(clockid_t, struct timespec *);
+180:	static int __uk_syscall_r_clock_settime(clockid_t, const struct timespec *);
+130:	static int __uk_syscall_r_gettimeofday(struct timeval *, void *);
+65:	static int __uk_syscall_r_nanosleep(const struct timespec *, struct timespec *);
+192:	static int __uk_syscall_r_setitimer(int, const struct itimerval *, struct itimerval *);
+120:	static time_t __uk_syscall_r_time(time_t *);
+187:	static int __uk_syscall_r_times(struct tm *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktime/timer.c:
+40:	int timer_create(clockid_t, struct sigevent * restrict, timer_t * restrict);
+48:	int timer_delete(timer_t);
+73:	int timer_getoverrun(timer_t);
+65:	int timer_gettime(timer_t, struct itimerspec *);
+55:	
+    int timer_settime(timer_t, int, const struct itimerspec * restrict, struct itimerspec * restrict);
+40:	long uk_syscall_e_timer_create(long, long, long);
+48:	long uk_syscall_e_timer_delete(long);
+73:	long uk_syscall_e_timer_getoverrun(long);
+65:	long uk_syscall_e_timer_gettime(long, long);
+55:	long uk_syscall_e_timer_settime(long, long, long, long);
+40:	long uk_syscall_r_timer_create(long, long, long);
+48:	long uk_syscall_r_timer_delete(long);
+73:	long uk_syscall_r_timer_getoverrun(long);
+65:	long uk_syscall_r_timer_gettime(long, long);
+55:	long uk_syscall_r_timer_settime(long, long, long, long);
+40:	
+    static int __uk_syscall_r_timer_create(clockid_t, struct sigevent * restrict, timer_t * restrict);
+48:	static int __uk_syscall_r_timer_delete(timer_t);
+73:	static int __uk_syscall_r_timer_getoverrun(timer_t);
+65:	static int __uk_syscall_r_timer_gettime(timer_t, struct itimerspec *);
+55:	
+    static int __uk_syscall_r_timer_settime(timer_t, int, const struct itimerspec * restrict, struct itimerspec * restrict);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktimeconv/include/uk/timeconv.h:
+100:	static unsigned int uktimeconv_bcdtobin(unsigned int);
+85:	static __u16 uktimeconv_days_per_year(__s64);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/uktimeconv/timeconv.c:
+175:	__nsec uktimeconv_bmkclock_to_nsec(struct uktimeconv_bmkclock *);
+124:	__u8 uktimeconv_days_in_month(__u8, int);
+143:	int uktimeconv_is_leap_year(__s64);
+109:	static __u8 _days_in_month(__u8);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/dentry.c:
+69:	struct dentry *dentry_alloc(struct dentry *, struct vnode *, const char *);
+244:	void dentry_init(void);
+111:	struct dentry *dentry_lookup(struct mount *, char *);
+142:	int dentry_move(struct dentry *, struct dentry *, char *);
+192:	void dentry_remove(struct dentry *);
+202:	void dref(struct dentry *);
+213:	void drele(struct dentry *);
+127:	static void dentry_children_remove(struct dentry *);
+55:	static unsigned int dentry_hash(struct mount *, const char *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/fd.c:
+183:	int fdalloc(struct vfscore_file *, int *);
+170:	int fget(int, struct vfscore_file **);
+52:	int vfscore_alloc_fd(void);
+147:	struct vfscore_file *vfscore_get_file(int);
+122:	int vfscore_install_fd(int, struct vfscore_file *);
+90:	int vfscore_put_fd(int);
+165:	void vfscore_put_file(struct vfscore_file *);
+72:	int vfscore_reserve_fd(int);
+207:	static void fdtable_init(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/file.c:
+42:	int fdrop(struct vfscore_file *);
+69:	void fhold(struct vfscore_file *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/fops.c:
+42:	int vfs_close(struct vfscore_file *);
+119:	int vfs_ioctl(struct vfscore_file *, unsigned long, void *);
+61:	int vfs_read(struct vfscore_file *, struct uio *, int);
+131:	int vfs_stat(struct vfscore_file *, struct stat *);
+87:	int vfs_write(struct vfscore_file *, struct uio *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/include/vfscore/fs.h:
+14:	static int vfscore_fflags(int);
+22:	static int vfscore_oflags(int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/include/vfscore/uio.h:
+68:	static int vfscore_uioforeach(int (*)(void *, void *, size_t *), void *, size_t, struct uio *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/lookup.c:
+323:	int lookup(char *, struct dentry **, char **);
+374:	void lookup_init(void);
+105:	int namei(const char *, struct dentry **);
+66:	int namei_follow_link(struct dentry *, char *, char *, char *, size_t);
+247:	int namei_last_nofollow(char *, struct dentry *, struct dentry **);
+46:	static ssize_t read_link(struct vnode *, char *, size_t, ssize_t *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/main.c:
+1657:	int __fstatfs(int, struct statfs *);
+826:	int __fxstat(int, int, struct stat *);
+868:	int __fxstatat(int, int, const char *, struct stat *, int);
+1573:	int __lxstat(int, const char *, struct stat *);
+1620:	int __statfs(const char *, struct statfs *);
+292:	int __xmknod(int, const char *, mode_t, dev_t *);
+1525:	int __xstat(int, const char *, struct stat *);
+2005:	int access(const char *, int);
+1369:	int chdir(const char *);
+2404:	int chmod(const char *, mode_t);
+2451:	int chown(const char *, uid_t, gid_t);
+2579:	int chroot(const char *);
+271:	int close(int);
+1029:	int closedir(DIR *);
+239:	int creat(const char *, mode_t);
+1020:	int dirfd(DIR *);
+1787:	int dup(int);
+1875:	int dup2(int, int);
+1822:	int dup3(int, int, int);
+2068:	int euidaccess(const char *, int);
+2032:	int faccessat(int, const char *, int, int);
+2206:	int fallocate(int, int, off_t, off_t);
+1408:	int fchdir(int);
+2428:	int fchmod(int, mode_t);
+2443:	int fchown(int, uid_t, gid_t);
+1982:	int fcntl(int, int, ...);
+816:	int fdatasync(int);
+255:	int fdclose(int);
+999:	DIR *fdopendir(int);
+931:	int flock(int, int);
+2574:	int fs_noop(void);
+857:	int fstat(int, struct stat *);
+914:	int fstatat(int, const char *, struct stat *, int);
+1680:	int fstatfs(int, struct statfs *);
+1725:	int fstatvfs(int, struct statvfs *);
+793:	int fsync(int);
+2143:	int ftruncate(int, off_t);
+2328:	int futimens(int, const struct timespec *);
+2239:	int futimes(int, const struct timeval *);
+2244:	int futimesat(int, const char *, const struct timeval *);
+1745:	char *getcwd(char *, size_t);
+1087:	int getdents(int, struct dirent *, size_t);
+776:	int ioctl(int, unsigned long, ...);
+2457:	int lchown(const char *, uid_t, gid_t);
+1437:	int link(const char *, const char *);
+324:	off_t lseek(int, off_t, int);
+1605:	int lstat(const char *, struct stat *);
+2375:	int lutimes(const char *, const struct timeval *);
+1223:	int mkdir(const char *, mode_t);
+315:	int mknod(const char *, mode_t, dev_t);
+925:	int newfstatat(int, const char *, struct stat *, int);
+161:	int open(const char *, int, ...);
+217:	int openat(int, const char *, int, ...);
+967:	DIR *opendir(const char *);
+2546:	int posix_fadvise(int, off_t, off_t, int);
+471:	ssize_t pread(int, void *, size_t, off_t);
+385:	ssize_t preadv(int, const struct iovec *, int, off_t);
+664:	ssize_t pwrite(int, const void *, size_t, off_t);
+577:	ssize_t pwritev(int, const struct iovec *, int, off_t);
+530:	ssize_t read(int, void *, size_t);
+1122:	struct dirent *readdir(DIR *);
+1137:	int readdir_r(DIR *, struct dirent *, struct dirent **);
+2172:	ssize_t readlink(const char *, char *, size_t);
+485:	ssize_t readv(int, const struct iovec *, int);
+1302:	int rename(const char *, const char *);
+1173:	void rewinddir(DIR *);
+1249:	int rmdir(const char *);
+1036:	
+    int scandir(const char *, struct dirent ***, int (*)(const struct dirent *), int (*)(const struct dirent **, const struct dirent **));
+1206:	void seekdir(DIR *, long);
+1554:	int stat(const char *, struct stat *);
+1642:	int statfs(const char *, struct statfs *);
+1709:	int statvfs(const char *, struct statvfs *);
+1472:	int symlink(const char *, const char *);
+1189:	long telldir(DIR *);
+2107:	int truncate(const char *, off_t);
+2005:	long uk_syscall_e_access(long, long);
+1369:	long uk_syscall_e_chdir(long);
+2404:	long uk_syscall_e_chmod(long, long);
+2451:	long uk_syscall_e_chown(long, long, long);
+2579:	long uk_syscall_e_chroot(long);
+271:	long uk_syscall_e_close(long);
+239:	long uk_syscall_e_creat(long, long);
+1787:	long uk_syscall_e_dup(long);
+1875:	long uk_syscall_e_dup2(long, long);
+1822:	long uk_syscall_e_dup3(long, long, long);
+2032:	long uk_syscall_e_faccessat(long, long, long, long);
+2206:	long uk_syscall_e_fallocate(long, long, long, long);
+1408:	long uk_syscall_e_fchdir(long);
+2428:	long uk_syscall_e_fchmod(long, long);
+2443:	long uk_syscall_e_fchown(long, long, long);
+1892:	long uk_syscall_e_fcntl(long, long, long);
+816:	long uk_syscall_e_fdatasync(long);
+931:	long uk_syscall_e_flock(long, long);
+857:	long uk_syscall_e_fstat(long, long);
+1680:	long uk_syscall_e_fstatfs(long, long);
+793:	long uk_syscall_e_fsync(long);
+2143:	long uk_syscall_e_ftruncate(long, long);
+2244:	long uk_syscall_e_futimesat(long, long, long);
+1745:	long uk_syscall_e_getcwd(long, long);
+1087:	long uk_syscall_e_getdents(long, long, long);
+747:	long uk_syscall_e_ioctl(long, long, long);
+2457:	long uk_syscall_e_lchown(long, long, long);
+1437:	long uk_syscall_e_link(long, long);
+324:	long uk_syscall_e_lseek(long, long, long);
+1605:	long uk_syscall_e_lstat(long, long);
+1223:	long uk_syscall_e_mkdir(long, long);
+315:	long uk_syscall_e_mknod(long, long, long);
+925:	long uk_syscall_e_newfstatat(long, long, long, long);
+114:	long uk_syscall_e_open(long, long, long);
+183:	long uk_syscall_e_openat(long, long, long, long);
+451:	long uk_syscall_e_pread64(long, long, long, long);
+385:	long uk_syscall_e_preadv(long, long, long, long);
+644:	long uk_syscall_e_pwrite64(long, long, long, long);
+577:	long uk_syscall_e_pwritev(long, long, long, long);
+530:	long uk_syscall_e_read(long, long, long);
+2172:	long uk_syscall_e_readlink(long, long, long);
+485:	long uk_syscall_e_readv(long, long, long);
+1302:	long uk_syscall_e_rename(long, long);
+1249:	long uk_syscall_e_rmdir(long);
+1554:	long uk_syscall_e_stat(long, long);
+1642:	long uk_syscall_e_statfs(long, long);
+1472:	long uk_syscall_e_symlink(long, long);
+2107:	long uk_syscall_e_truncate(long, long);
+2568:	long uk_syscall_e_umask(long);
+1498:	long uk_syscall_e_unlink(long);
+2380:	long uk_syscall_e_utime(long, long);
+2307:	long uk_syscall_e_utimensat(long, long, long, long);
+2369:	long uk_syscall_e_utimes(long, long);
+724:	long uk_syscall_e_write(long, long, long);
+678:	long uk_syscall_e_writev(long, long, long);
+2005:	long uk_syscall_r_access(long, long);
+1369:	long uk_syscall_r_chdir(long);
+2404:	long uk_syscall_r_chmod(long, long);
+2451:	long uk_syscall_r_chown(long, long, long);
+2579:	long uk_syscall_r_chroot(long);
+271:	long uk_syscall_r_close(long);
+239:	long uk_syscall_r_creat(long, long);
+1787:	long uk_syscall_r_dup(long);
+1875:	long uk_syscall_r_dup2(long, long);
+1822:	long uk_syscall_r_dup3(long, long, long);
+2032:	long uk_syscall_r_faccessat(long, long, long, long);
+2206:	long uk_syscall_r_fallocate(long, long, long, long);
+1408:	long uk_syscall_r_fchdir(long);
+2428:	long uk_syscall_r_fchmod(long, long);
+2443:	long uk_syscall_r_fchown(long, long, long);
+1892:	long uk_syscall_r_fcntl(long, long, long);
+816:	long uk_syscall_r_fdatasync(long);
+931:	long uk_syscall_r_flock(long, long);
+857:	long uk_syscall_r_fstat(long, long);
+1680:	long uk_syscall_r_fstatfs(long, long);
+793:	long uk_syscall_r_fsync(long);
+2143:	long uk_syscall_r_ftruncate(long, long);
+2244:	long uk_syscall_r_futimesat(long, long, long);
+1745:	long uk_syscall_r_getcwd(long, long);
+1087:	long uk_syscall_r_getdents(long, long, long);
+747:	long uk_syscall_r_ioctl(long, long, long);
+2457:	long uk_syscall_r_lchown(long, long, long);
+1437:	long uk_syscall_r_link(long, long);
+324:	long uk_syscall_r_lseek(long, long, long);
+1605:	long uk_syscall_r_lstat(long, long);
+1223:	long uk_syscall_r_mkdir(long, long);
+315:	long uk_syscall_r_mknod(long, long, long);
+925:	long uk_syscall_r_newfstatat(long, long, long, long);
+114:	long uk_syscall_r_open(long, long, long);
+183:	long uk_syscall_r_openat(long, long, long, long);
+451:	long uk_syscall_r_pread64(long, long, long, long);
+385:	long uk_syscall_r_preadv(long, long, long, long);
+644:	long uk_syscall_r_pwrite64(long, long, long, long);
+577:	long uk_syscall_r_pwritev(long, long, long, long);
+530:	long uk_syscall_r_read(long, long, long);
+2172:	long uk_syscall_r_readlink(long, long, long);
+485:	long uk_syscall_r_readv(long, long, long);
+1302:	long uk_syscall_r_rename(long, long);
+1249:	long uk_syscall_r_rmdir(long);
+1554:	long uk_syscall_r_stat(long, long);
+1642:	long uk_syscall_r_statfs(long, long);
+1472:	long uk_syscall_r_symlink(long, long);
+2107:	long uk_syscall_r_truncate(long, long);
+2568:	long uk_syscall_r_umask(long);
+1498:	long uk_syscall_r_unlink(long);
+2380:	long uk_syscall_r_utime(long, long);
+2307:	long uk_syscall_r_utimensat(long, long, long, long);
+2369:	long uk_syscall_r_utimes(long, long);
+724:	long uk_syscall_r_write(long, long, long);
+678:	long uk_syscall_r_writev(long, long, long);
+2568:	mode_t umask(mode_t);
+1498:	int unlink(const char *);
+2380:	int utime(const char *, const struct utimbuf *);
+2307:	int utimensat(int, const char *, const struct timespec *, int);
+2369:	int utimes(const char *, const struct timeval *);
+724:	ssize_t write(int, const void *, size_t);
+678:	ssize_t writev(int, const struct iovec *, int);
+1348:	static int __do_fchdir(struct vfscore_file *, struct task *);
+239:	static int __uk_syscall_e_creat(const char *, mode_t);
+857:	static int __uk_syscall_e_fstat(int, struct stat *);
+2244:	static int __uk_syscall_e_futimesat(int, const char *, const struct timeval *);
+2172:	static ssize_t __uk_syscall_e_readlink(const char *, char *, size_t);
+2005:	static int __uk_syscall_r_access(const char *, int);
+1369:	static int __uk_syscall_r_chdir(const char *);
+2404:	static int __uk_syscall_r_chmod(const char *, mode_t);
+2451:	static int __uk_syscall_r_chown(const char *, uid_t, gid_t);
+2579:	static int __uk_syscall_r_chroot(const char *);
+271:	static int __uk_syscall_r_close(int);
+1787:	static int __uk_syscall_r_dup(int);
+1875:	static int __uk_syscall_r_dup2(int, int);
+1822:	static int __uk_syscall_r_dup3(int, int, int);
+2032:	static int __uk_syscall_r_faccessat(int, const char *, int, int);
+2206:	static int __uk_syscall_r_fallocate(int, int, off_t, off_t);
+1408:	static int __uk_syscall_r_fchdir(int);
+2428:	static int __uk_syscall_r_fchmod(int, mode_t);
+2443:	static int __uk_syscall_r_fchown(int, uid_t, gid_t);
+1892:	static int __uk_syscall_r_fcntl(int, unsigned int, int);
+816:	static int __uk_syscall_r_fdatasync(int);
+931:	static int __uk_syscall_r_flock(int, int);
+1680:	static int __uk_syscall_r_fstatfs(int, struct statfs *);
+793:	static int __uk_syscall_r_fsync(int);
+2143:	static int __uk_syscall_r_ftruncate(int, off_t);
+1745:	static char *__uk_syscall_r_getcwd(char *, size_t);
+1087:	static int __uk_syscall_r_getdents(int, struct dirent *, size_t);
+747:	static int __uk_syscall_r_ioctl(int, unsigned long, void *);
+2457:	static int __uk_syscall_r_lchown(const char *, uid_t, gid_t);
+1437:	static int __uk_syscall_r_link(const char *, const char *);
+324:	static off_t __uk_syscall_r_lseek(int, off_t, int);
+1605:	static int __uk_syscall_r_lstat(const char *, struct stat *);
+1223:	static int __uk_syscall_r_mkdir(const char *, mode_t);
+315:	static int __uk_syscall_r_mknod(const char *, mode_t, dev_t);
+925:	static int __uk_syscall_r_newfstatat(int, const char *, struct stat *, int);
+114:	static int __uk_syscall_r_open(const char *, int, mode_t);
+183:	static int __uk_syscall_r_openat(int, const char *, int, int);
+451:	static ssize_t __uk_syscall_r_pread64(int, void *, size_t, off_t);
+385:	static ssize_t __uk_syscall_r_preadv(int, const struct iovec *, int, off_t);
+644:	static ssize_t __uk_syscall_r_pwrite64(int, const void *, size_t, off_t);
+577:	static ssize_t __uk_syscall_r_pwritev(int, const struct iovec *, int, off_t);
+530:	static ssize_t __uk_syscall_r_read(int, void *, size_t);
+485:	static ssize_t __uk_syscall_r_readv(int, const struct iovec *, int);
+1302:	static int __uk_syscall_r_rename(const char *, const char *);
+1249:	static int __uk_syscall_r_rmdir(const char *);
+1554:	static int __uk_syscall_r_stat(const char *, struct stat *);
+1642:	static int __uk_syscall_r_statfs(const char *, struct statfs *);
+1472:	static int __uk_syscall_r_symlink(const char *, const char *);
+2107:	static int __uk_syscall_r_truncate(const char *, off_t);
+2568:	static mode_t __uk_syscall_r_umask(mode_t);
+1498:	static int __uk_syscall_r_unlink(const char *);
+2380:	static int __uk_syscall_r_utime(const char *, const struct utimbuf *);
+2307:	static int __uk_syscall_r_utimensat(int, const char *, const struct timespec *, int);
+2369:	static int __uk_syscall_r_utimes(const char *, const struct timeval *);
+724:	static ssize_t __uk_syscall_r_write(int, const void *, size_t);
+678:	static ssize_t __uk_syscall_r_writev(int, const struct iovec *, int);
+103:	static mode_t apply_umask(mode_t);
+359:	static ssize_t do_preadv(struct vfscore_file *, const struct iovec *, int, off_t, ssize_t *);
+551:	static int do_pwritev(struct vfscore_file *, const struct iovec *, int, off_t, ssize_t *);
+2343:	static int do_utimes(const char *, const struct timeval *, int);
+1274:	static void get_last_component(const char *, char *);
+95:	static int has_error(int, int);
+84:	static int libc_error(int);
+1293:	static int null_or_empty(const char *);
+1692:	static int statfs_to_statvfs(struct statvfs *, struct statfs *);
+1998:	static void trace_vfs_access(const char *, int);
+2000:	static void trace_vfs_access_err(int);
+1999:	static void trace_vfs_access_ret();
+1343:	static void trace_vfs_chdir(const char *);
+1345:	static void trace_vfs_chdir_err(int);
+1344:	static void trace_vfs_chdir_ret();
+2400:	static void trace_vfs_chmod(const char *, mode_t);
+2402:	static void trace_vfs_chmod_err(int);
+2401:	static void trace_vfs_chmod_ret();
+251:	static void trace_vfs_close(int);
+253:	static void trace_vfs_close_err(int);
+252:	static void trace_vfs_close_ret();
+1781:	static void trace_vfs_dup(int);
+1816:	static void trace_vfs_dup3(int, int, int);
+1818:	static void trace_vfs_dup3_err(int);
+1817:	static void trace_vfs_dup3_ret(int);
+1783:	static void trace_vfs_dup_err(int);
+1782:	static void trace_vfs_dup_ret(int);
+2202:	static void trace_vfs_fallocate(int, int, off_t, off_t);
+2204:	static void trace_vfs_fallocate_err(int);
+2203:	static void trace_vfs_fallocate_ret();
+1404:	static void trace_vfs_fchdir(int);
+1406:	static void trace_vfs_fchdir_err(int);
+1405:	static void trace_vfs_fchdir_ret();
+2425:	static void trace_vfs_fchmod(int, mode_t);
+2426:	static void trace_vfs_fchmod_ret();
+2440:	static void trace_vfs_fchown(int, uid_t, gid_t);
+2441:	static void trace_vfs_fchown_ret();
+1888:	static void trace_vfs_fcntl(int, int, int);
+1890:	static void trace_vfs_fcntl_err(int);
+1889:	static void trace_vfs_fcntl_ret(int);
+822:	static void trace_vfs_fstat(int, struct stat *);
+824:	static void trace_vfs_fstat_err(int);
+823:	static void trace_vfs_fstat_ret();
+1653:	static void trace_vfs_fstatfs(int, struct statfs *);
+1655:	static void trace_vfs_fstatfs_err(int);
+1654:	static void trace_vfs_fstatfs_ret();
+789:	static void trace_vfs_fsync(int);
+791:	static void trace_vfs_fsync_err(int);
+790:	static void trace_vfs_fsync_ret();
+2139:	static void trace_vfs_ftruncate(int, off_t);
+2141:	static void trace_vfs_ftruncate_err(int);
+2140:	static void trace_vfs_ftruncate_ret();
+2324:	static void trace_vfs_futimens(int);
+2326:	static void trace_vfs_futimens_err(int);
+2325:	static void trace_vfs_futimens_ret();
+1741:	static void trace_vfs_getcwd(char *, size_t);
+1743:	static void trace_vfs_getcwd_err(int);
+1742:	static void trace_vfs_getcwd_ret(const char *);
+1083:	static void trace_vfs_getdents(int, struct dirent *, size_t);
+1085:	static void trace_vfs_getdents_err(int);
+1084:	static void trace_vfs_getdents_ret();
+743:	static void trace_vfs_ioctl(int, unsigned long);
+745:	static void trace_vfs_ioctl_err(int);
+744:	static void trace_vfs_ioctl_ret();
+1433:	static void trace_vfs_link(const char *, const char *);
+1435:	static void trace_vfs_link_err(int);
+1434:	static void trace_vfs_link_ret();
+320:	static void trace_vfs_lseek(int, off_t, int);
+322:	static void trace_vfs_lseek_err(int);
+321:	static void trace_vfs_lseek_ret(off_t);
+1568:	static void trace_vfs_lstat(const char *, struct stat *);
+1571:	static void trace_vfs_lstat_err(int);
+1570:	static void trace_vfs_lstat_ret();
+1219:	static void trace_vfs_mkdir(const char *, mode_t);
+1221:	static void trace_vfs_mkdir_err(int);
+1220:	static void trace_vfs_mkdir_ret();
+288:	static void trace_vfs_mknod(const char *, mode_t, dev_t);
+290:	static void trace_vfs_mknod_err(int);
+289:	static void trace_vfs_mknod_ret();
+108:	static void trace_vfs_open(const char *, int, mode_t);
+110:	static void trace_vfs_open_err(int);
+109:	static void trace_vfs_open_ret(int);
+437:	static void trace_vfs_pread(int, void *, size_t, off_t);
+439:	static void trace_vfs_pread_err(int);
+438:	static void trace_vfs_pread_ret(ssize_t);
+380:	static void trace_vfs_preadv(int, const struct iovec *, int, off_t);
+383:	static void trace_vfs_preadv_err(int);
+382:	static void trace_vfs_preadv_ret(ssize_t);
+629:	static void trace_vfs_pwrite(int, const void *, size_t, off_t);
+632:	static void trace_vfs_pwrite_err(int);
+631:	static void trace_vfs_pwrite_ret(ssize_t);
+572:	static void trace_vfs_pwritev(int, const struct iovec *, int, off_t);
+575:	static void trace_vfs_pwritev_err(int);
+574:	static void trace_vfs_pwritev_ret(ssize_t);
+526:	static void trace_vfs_read(int, void *, int);
+528:	static void trace_vfs_read_err(int);
+527:	static void trace_vfs_read_ret(ssize_t);
+958:	static void trace_vfs_readdir(int, struct dirent *);
+960:	static void trace_vfs_readdir_err(int);
+959:	static void trace_vfs_readdir_ret();
+480:	static void trace_vfs_readv(int, const struct iovec *, int);
+483:	static void trace_vfs_readv_err(int);
+482:	static void trace_vfs_readv_ret(ssize_t);
+1298:	static void trace_vfs_rename(const char *, const char *);
+1300:	static void trace_vfs_rename_err(int);
+1299:	static void trace_vfs_rename_ret();
+1245:	static void trace_vfs_rmdir(const char *);
+1247:	static void trace_vfs_rmdir_err(int);
+1246:	static void trace_vfs_rmdir_ret();
+1521:	static void trace_vfs_stat(const char *, struct stat *);
+1523:	static void trace_vfs_stat_err(int);
+1522:	static void trace_vfs_stat_ret();
+1616:	static void trace_vfs_statfs(const char *, struct statfs *);
+1618:	static void trace_vfs_statfs_err(int);
+1617:	static void trace_vfs_statfs_ret();
+1467:	static void trace_vfs_symlink(const char *, const char *);
+1470:	static void trace_vfs_symlink_err(int);
+1469:	static void trace_vfs_symlink_ret();
+2103:	static void trace_vfs_truncate(const char *, off_t);
+2105:	static void trace_vfs_truncate_err(int);
+2104:	static void trace_vfs_truncate_ret();
+1494:	static void trace_vfs_unlink(const char *);
+1496:	static void trace_vfs_unlink_err(int);
+1495:	static void trace_vfs_unlink_ret();
+2303:	static void trace_vfs_utimensat(const char *);
+2305:	static void trace_vfs_utimensat_err(int);
+2304:	static void trace_vfs_utimensat_ret();
+2235:	static void trace_vfs_utimes(const char *);
+2237:	static void trace_vfs_utimes_err(int);
+2236:	static void trace_vfs_utimes_ret();
+719:	static void trace_vfs_write(int, const void *, size_t);
+722:	static void trace_vfs_write_err(int);
+721:	static void trace_vfs_write_ret(ssize_t);
+673:	static void trace_vfs_writev(int, const struct iovec *, int);
+2586:	static void vfscore_init(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/mount.c:
+105:	int device_close(struct device *);
+98:	int device_open(const char *, int, struct device **);
+112:	int mount(const char *, const char *, const char *, unsigned long, const void *);
+385:	void sync(void);
+112:	long uk_syscall_e_mount(long, long, long, long, long);
+367:	long uk_syscall_e_sync();
+259:	long uk_syscall_e_umount2(long, long);
+112:	long uk_syscall_r_mount(long, long, long, long, long);
+367:	long uk_syscall_r_sync();
+259:	long uk_syscall_r_umount2(long, long);
+312:	int umount(const char *);
+259:	int umount2(const char *, int);
+458:	void vfs_busy(struct mount *);
+427:	int vfs_findroot(const char *, struct mount **, char **);
+471:	void vfs_unbusy(struct mount *);
+486:	int vfscore_einval();
+480:	int vfscore_nullop();
+248:	void vfscore_release_mp_dentries(struct mount *);
+112:	
+    static int __uk_syscall_r_mount(const char *, const char *, const char *, unsigned long, const void *);
+367:	static int __uk_syscall_r_sync();
+259:	static int __uk_syscall_r_umount2(const char *, int);
+397:	static size_t count_match(const char *, char *);
+80:	static const struct vfscore_fs_type *fs_getfs(const char *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/pipe.c:
+608:	int mkfifo(const char *, mode_t);
+551:	int pipe(int *);
+588:	int pipe2(int *, int);
+114:	void pipe_buf_free(struct pipe_buf *);
+224:	struct pipe_file *pipe_file_alloc(int, int);
+245:	void pipe_file_free(struct pipe_file *);
+551:	long uk_syscall_e_pipe(long);
+588:	long uk_syscall_e_pipe2(long, long);
+551:	long uk_syscall_r_pipe(long);
+588:	long uk_syscall_r_pipe2(long, long);
+551:	static int __uk_syscall_r_pipe(int *);
+588:	static int __uk_syscall_r_pipe2(int *, int);
+87:	static struct pipe_buf *pipe_buf_alloc(int);
+135:	static int pipe_buf_can_read(struct pipe_buf *);
+130:	static int pipe_buf_can_write(struct pipe_buf *);
+120:	static unsigned long pipe_buf_get_available(const struct pipe_buf *);
+125:	static unsigned long pipe_buf_get_free_space(struct pipe_buf *);
+184:	static unsigned long pipe_buf_read(struct pipe_buf *, struct iovec *, size_t);
+145:	static unsigned long pipe_buf_write(struct pipe_buf *, struct iovec *, size_t);
+372:	static int pipe_close(struct vnode *, struct vfscore_file *);
+479:	static int pipe_fd_alloc(struct pipe_file *, int);
+140:	static int pipe_file_can_read(struct pipe_file *);
+400:	static int pipe_ioctl(struct vnode *, struct vfscore_file *, unsigned long, void *);
+308:	static int pipe_read(struct vnode *, struct vfscore_file *, struct uio *, int);
+392:	static int pipe_seek(struct vnode *, struct vfscore_file *, off_t, off_t);
+251:	static int pipe_write(struct vnode *, struct uio *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/stdio.c:
+210:	void init_stdio(void);
+71:	static int __read_fn(void *, void *, size_t *);
+45:	static int __write_fn(void *, void *, size_t *);
+136:	static int stdio_getattr(struct vnode *, struct vattr *);
+119:	static int stdio_read(struct vnode *, struct vfscore_file *, struct uio *, int);
+60:	static int stdio_write(struct vnode *, struct uio *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/subr_uio.c:
+55:	int vfscore_uiomove(void *, int, struct uio *);
+48:	static int __memcpy_wrapper(void *, void *, size_t *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/syscalls.c:
+1337:	void init_timespec(struct timespec *, const struct timespec *);
+1045:	int sys_access(char *, int);
+1495:	int sys_chmod(const char *, mode_t);
+235:	int sys_close(struct vfscore_file *);
+1451:	int sys_fallocate(struct vfscore_file *, int, off_t, off_t);
+1186:	int sys_fchdir(struct vfscore_file *, char *);
+1513:	int sys_fchmod(int, mode_t);
+421:	int sys_fstat(struct vfscore_file *, struct stat *);
+1132:	int sys_fstatfs(struct vfscore_file *, struct statfs *);
+403:	int sys_fsync(struct vfscore_file *);
+1169:	int sys_ftruncate(struct vfscore_file *, off_t);
+1432:	int sys_futimens(int, const struct timespec *);
+377:	int sys_ioctl(struct vfscore_file *, unsigned long, void *);
+918:	int sys_link(char *, char *);
+341:	int sys_lseek(struct vfscore_file *, off_t, int, off_t *);
+1087:	int sys_lstat(char *, struct stat *);
+548:	int sys_mkdir(char *, mode_t);
+629:	int sys_mknod(char *, mode_t);
+107:	int sys_open(char *, int, mode_t, struct vfscore_file **);
+242:	int sys_read(struct vfscore_file *, const struct iovec *, size_t, off_t, size_t *);
+467:	int sys_readdir(struct vfscore_file *, struct dirent *);
+1206:	int sys_readlink(char *, char *, size_t, ssize_t *);
+702:	int sys_rename(char *, char *);
+491:	int sys_rewinddir(struct vfscore_file *);
+582:	int sys_rmdir(char *);
+510:	int sys_seekdir(struct vfscore_file *, long);
+1072:	int sys_stat(char *, struct stat *);
+1114:	int sys_statfs(char *, struct statfs *);
+855:	int sys_symlink(const char *, const char *);
+529:	int sys_telldir(struct vfscore_file *, long *);
+1151:	int sys_truncate(char *, off_t);
+980:	int sys_unlink(char *);
+1349:	int sys_utimensat(int, const char *, const struct timespec *, int);
+1281:	int sys_utimes(char *, const struct timeval *, int);
+292:	int sys_write(struct vfscore_file *, const struct iovec *, size_t, off_t, size_t *);
+436:	static int check_dir_empty(char *);
+1270:	static void convert_timeval(struct timespec *, const struct timeval *);
+684:	static int has_trailing(const char *, char);
+677:	static int is_parent(const char *, const char *);
+1329:	static int is_timespec_valid(const struct timespec *);
+1261:	static int is_timeval_valid(const struct timeval *);
+60:	static int open_no_follow_chk(char *);
+691:	static void strip_trailing(char *, char);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/task.c:
+56:	int path_conv(char *, const char *, char *);
+133:	int task_conv(struct task *, const char *, int, char *);
+149:	int vfs_dname_copy(char *, const char *, size_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/vfscore/vnode.c:
+304:	void vflush(struct mount *);
+176:	int vfscore_vget(struct mount *, uint64_t, struct vnode **);
+486:	int vfscore_vop_einval();
+492:	int vfscore_vop_eperm();
+498:	int vfscore_vop_erofs();
+480:	int vfscore_vop_nullop();
+416:	int vn_access(struct vnode *, int);
+516:	void vn_add_name(struct vnode *, struct dentry *);
+524:	void vn_del_name(struct vnode *, struct dentry *);
+148:	void vn_lock(struct vnode *);
+115:	struct vnode *vn_lookup(struct mount *, uint64_t);
+399:	int vn_setmode(struct vnode *, mode_t);
+375:	int vn_settimes(struct vnode *, struct timespec *);
+309:	int vn_stat(struct vnode *, struct stat *);
+161:	void vn_unlock(struct vnode *);
+508:	void vnode_init(void);
+229:	void vput(struct vnode *);
+259:	void vref(struct vnode *);
+277:	void vrele(struct vnode *);
+103:	static unsigned int vn_hash(struct mount *, uint64_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/uk/plat/common/lcpu.h:
+238:	static struct lcpu *lcpu_get_bsp(void);
+247:	static int lcpu_is_bsp(struct lcpu *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:
+129:	static void _init_cpufeatures(void);
+113:	static __sz arch_extregs_size(void);
+121:	static void arch_init_extregs(struct sw_ctx *);
+62:	static void cpuid(__u32, __u32, __u32 *, __u32 *, __u32 *, __u32 *);
+210:	static __u8 inb(__u16);
+226:	static __u32 inl(__u16);
+234:	static __u64 inq(__u16);
+218:	static __u16 inw(__u16);
+260:	static __u64 mul64_32(__u64, __u32);
+245:	static void outb(__u16, __u8);
+255:	static void outl(__u16, __u32);
+250:	static void outw(__u16, __u16);
+200:	static __u64 rdtsc(void);
+93:	static void restore_extregs(struct sw_ctx *);
+71:	static void save_extregs(struct sw_ctx *);
+187:	static void wrmsr(unsigned int, __u32, __u32);
+194:	static void wrmsrl(unsigned int, __u64);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/irq.h:
+78:	static int irqs_disabled(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/lcpu.c:
+96:	__lcpuid lcpu_arch_id(void);
+101:	int lcpu_arch_init(struct lcpu *);
+107:	struct lcpu *lcpu_get(__lcpuidx);
+114:	struct lcpu *lcpu_get_current(void);
+119:	int lcpu_init(struct lcpu *);
+180:	void ukplat_lcpu_halt(void);
+185:	void ukplat_lcpu_halt_to(__nsec);
+194:	__lcpuid ukplat_lcpu_id(void);
+165:	static void lcpu_halt(struct lcpu *, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/memory.c:
+54:	struct uk_alloc *ukplat_memallocator_get(void);
+40:	int ukplat_memallocator_set(struct uk_alloc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:
+149:	void _pci_register_driver(struct pci_driver *);
+104:	struct pci_driver *pci_find_driver(struct pci_device_id *);
+164:	static void libkvmpci_uk_bus_register(void);
+92:	static int pci_device_id_is_any(const struct pci_device_id *);
+61:	static int pci_device_id_match(const struct pci_device_id *, const struct pci_device_id *);
+126:	static int pci_init(struct uk_alloc *);
+120:	static int pci_probe(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/sw_ctx.c:
+100:	void sw_ctx_callbacks_init(struct ukplat_ctx_callbacks *);
+57:	static void sw_ctx_init(void *, unsigned long, unsigned long);
+52:	static size_t sw_ctx_size(void);
+74:	static void sw_ctx_start(void *);
+89:	static void sw_ctx_switch(void *, void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/thread.c:
+47:	int ukplat_ctx_callbacks_init(struct ukplat_ctx_callbacks *, enum ukplat_ctx_type);
+39:	void ukplat_thread_ctx_destroy(struct uk_alloc *, void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/cpu_native.c:
+35:	void halt(void);
+40:	unsigned long read_cr2(void);
+49:	void system_off(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:
+209:	int arch_pci_probe(struct uk_alloc *);
+68:	
+    static int pci_driver_add_device(struct pci_driver *, struct pci_address *, struct pci_device_id *);
+187:	static void probe_bus(uint32_t);
+116:	static int probe_function(uint32_t, uint32_t, uint32_t);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/trace.c:
+57:	void dump_mem(unsigned long);
+39:	void dump_regs(struct __regs *);
+73:	void stack_walk(void);
+82:	void stack_walk_for_frame(unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/traps.c:
+75:	void do_alignment_check(struct __regs *, unsigned long);
+67:	void do_bounds(struct __regs *, unsigned long);
+74:	void do_coproc_error(struct __regs *);
+64:	void do_debug(struct __regs *);
+63:	void do_divide_error(struct __regs *, unsigned long);
+73:	void do_gp_fault(struct __regs *, unsigned long);
+65:	void do_int3(struct __regs *, unsigned long);
+68:	void do_invalid_op(struct __regs *, unsigned long);
+70:	void do_invalid_tss(struct __regs *, unsigned long);
+76:	void do_machine_check(struct __regs *, unsigned long);
+69:	void do_no_device(struct __regs *, unsigned long);
+71:	void do_no_segment(struct __regs *, unsigned long);
+66:	void do_overflow(struct __regs *, unsigned long);
+92:	void do_page_fault(struct __regs *, unsigned long);
+78:	void do_security_error(struct __regs *, unsigned long);
+77:	void do_simd_error(struct __regs *);
+72:	void do_stack_error(struct __regs *, unsigned long);
+80:	void do_unhandled_trap(int, char *, struct __regs *, unsigned long);
+59:	static int _raise_event_UKARCH_TRAP_BUS_ERROR(int, struct __regs *, unsigned long);
+57:	static int _raise_event_UKARCH_TRAP_DEBUG(int, struct __regs *, unsigned long);
+56:	static int _raise_event_UKARCH_TRAP_INVALID_OP(int, struct __regs *, unsigned long);
+60:	static int _raise_event_UKARCH_TRAP_MATH(int, struct __regs *, unsigned long);
+61:	static int _raise_event_UKARCH_TRAP_SECURITY(int, struct __regs *, unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_bus.h:
+254:	static int virtio_config_get(struct virtio_dev *, __u16, void *, __u32, __u8);
+348:	static void virtio_dev_drv_up(struct virtio_dev *);
+191:	static int virtio_dev_status_update(struct virtio_dev *, __u8);
+212:	static __u64 virtio_feature_get(struct virtio_dev *);
+230:	static void virtio_feature_set(struct virtio_dev *, __u32);
+281:	static int virtio_find_vqs(struct virtio_dev *, __u16, __u16 *);
+314:	
+    static struct virtqueue *virtio_vqueue_setup(struct virtio_dev *, __u16, __u16, virtqueue_callback_t, struct uk_alloc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:
+85:	static void _virtio_cread_bytes(const void *, const __u8, void *, int, int);
+59:	static void _virtio_cwrite_bytes(const void *, const __u8, const void *, int, int);
+240:	static __u16 virtio_cread16(const void *, const __u8);
+258:	static __u32 virtio_cread32(const void *, const __u8);
+222:	static __u8 virtio_cread8(const void *, const __u8);
+187:	static int virtio_cread_bytes_many(const void *, const __u8, __u8 *, __u32);
+292:	static void virtio_cwrite16(const void *, const __u8, const __u16);
+308:	static void virtio_cwrite32(const void *, const __u8, const __u32);
+276:	static void virtio_cwrite8(const void *, const __u8, const __u8);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_ring.h:
+162:	static void vring_init(struct vring *, unsigned int, uint8_t *, unsigned long);
+173:	static unsigned int vring_size(unsigned int, unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtqueue.h:
+273:	static void virtqueue_host_notify(struct virtqueue *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_9p.c:
+482:	static void libkvmvirtio9p_virtio_register_driver(void);
+423:	static int virtio_9p_add_dev(struct virtio_dev *);
+386:	static int virtio_9p_configure(struct virtio_9p_device *);
+73:	static int virtio_9p_connect(struct uk_9pdev *, const char *, const char *);
+116:	static int virtio_9p_disconnect(struct uk_9pdev *);
+455:	static int virtio_9p_drv_init(struct uk_alloc *);
+332:	static int virtio_9p_feature_negotiate(struct virtio_9p_device *);
+380:	static void virtio_9p_feature_set(struct virtio_9p_device *);
+234:	static int virtio_9p_recv(struct virtqueue *, void *);
+130:	static int virtio_9p_request(struct uk_9pdev *, struct uk_9preq *);
+414:	static int virtio_9p_start(struct virtio_9p_device *);
+293:	static int virtio_9p_vq_alloc(struct virtio_9p_device *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:
+217:	void _virtio_bus_register_driver(struct virtio_driver *);
+131:	int virtio_bus_register_device(struct virtio_dev *);
+74:	static struct virtio_driver *find_match_drv(struct virtio_dev *);
+226:	static void libkvmvirtio_uk_bus_register(void);
+192:	static int virtio_bus_init(struct uk_alloc *);
+178:	static int virtio_bus_probe(void);
+58:	static int virtio_device_id_match(const struct virtio_dev_id *, const struct virtio_dev_id *);
+97:	static int virtio_device_reinit(struct virtio_dev *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_fs.c:
+69:	static void libkvmvirtiofs_virtio_register_driver(void);
+53:	static int virtio_fs_add_dev(struct virtio_dev *);
+47:	static int virtio_fs_drv_init(struct uk_alloc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:
+453:	static void libkvmvirtio_pci_register_driver(void);
+390:	static int virtio_pci_add_dev(struct pci_device *);
+432:	static int virtio_pci_drv_init(struct uk_alloc *);
+128:	static int virtio_pci_handle(void *);
+364:	static int virtio_pci_legacy_add_dev(struct pci_device *, struct virtio_pci_dev *);
+116:	static int vpci_legacy_notify(struct virtio_dev *, __u16);
+260:	static int vpci_legacy_pci_config_get(struct virtio_dev *, __u16, void *, __u32, __u8);
+246:	static int vpci_legacy_pci_config_set(struct virtio_dev *, __u16, const void *, __u32);
+311:	static void vpci_legacy_pci_dev_reset(struct virtio_dev *);
+338:	static __u64 vpci_legacy_pci_features_get(struct virtio_dev *);
+351:	static void vpci_legacy_pci_features_set(struct virtio_dev *, __u64);
+286:	static __u8 vpci_legacy_pci_status_get(struct virtio_dev *);
+296:	static void vpci_legacy_pci_status_set(struct virtio_dev *, __u8);
+215:	static int vpci_legacy_pci_vq_find(struct virtio_dev *, __u16, __u16 *);
+192:	static void vpci_legacy_vq_release(struct virtio_dev *, struct virtqueue *, struct uk_alloc *);
+153:	
+    static struct virtqueue *vpci_legacy_vq_setup(struct virtio_dev *, __u16, __u16, virtqueue_callback_t, struct uk_alloc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_ring.c:
+295:	int virtqueue_buffer_dequeue(struct virtqueue *, void **, __u32 *);
+324:	int virtqueue_buffer_enqueue(struct virtqueue *, void *, struct uk_sglist *, __u16, __u16);
+387:	
+    struct virtqueue *virtqueue_create(__u16, __u16, __u16, virtqueue_callback_t, virtqueue_notify_host_t, struct virtio_dev *, struct uk_alloc *);
+436:	void virtqueue_destroy(struct virtqueue *, struct uk_alloc *);
+226:	__u64 virtqueue_feature_negotiate(__u64);
+263:	__paddr_t virtqueue_get_avail_addr(struct virtqueue *);
+274:	__paddr_t virtqueue_get_used_addr(struct virtqueue *);
+216:	int virtqueue_hasdata(struct virtqueue *);
+91:	void virtqueue_intr_disable(struct virtqueue *);
+101:	int virtqueue_intr_enable(struct virtqueue *);
+451:	int virtqueue_is_full(struct virtqueue *);
+180:	int virtqueue_notify_enabled(struct virtqueue *);
+253:	__paddr_t virtqueue_physaddr(struct virtqueue *);
+238:	int virtqueue_ring_interrupt(void *);
+285:	unsigned int virtqueue_vring_get_num(struct virtqueue *);
+190:	
+    static int virtqueue_buffer_enqueue_segments(struct virtqueue_vring *, __u16, struct uk_sglist *, __u16, __u16);
+156:	static void virtqueue_detach_desc(struct virtqueue_vring *, __u16);
+140:	static void virtqueue_ring_update_avail(struct virtqueue_vring *, __u16);
+368:	static void virtqueue_vring_init(struct virtqueue_vring *, __u16, __u16);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/io.c:
+41:	__paddr_t ukplat_virt_to_phys(const volatile void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/irq.c:
+90:	void _ukplat_irq_handle(unsigned long);
+129:	int ukplat_irq_init(struct uk_alloc *);
+59:	int ukplat_irq_register(unsigned long, irq_handler_func_t, void *);
+50:	static struct irq_handler *allocate_handler(unsigned long);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/memory.c:
+177:	int _ukplat_mem_mappings_init(void);
+28:	int ukplat_memregion_count(void);
+35:	int ukplat_memregion_get(int, struct ukplat_memregion_desc *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/shutdown.c:
+52:	int ukplat_suspend(void);
+33:	void ukplat_terminate(enum ukplat_gstate);
+47:	static void cpu_halt(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/console.c:
+38:	void _libkvmplat_init_console(void);
+76:	int ukplat_cink(char *, unsigned int);
+49:	int ukplat_coutd(const char *, unsigned int);
+63:	int ukplat_coutk(const char *, unsigned int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/intctrl.c:
+89:	void intctrl_ack_irq(unsigned int);
+105:	void intctrl_clear_irq(unsigned int);
+84:	void intctrl_init(void);
+97:	void intctrl_mask_irq(unsigned int);
+57:	static void PIC_remap(int, int);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/lcpu.c:
+43:	void ukplat_lcpu_disable_irq(void);
+38:	void ukplat_lcpu_enable_irq(void);
+48:	void ukplat_lcpu_halt_irq(void);
+77:	int ukplat_lcpu_irqs_disabled(void);
+82:	void ukplat_lcpu_irqs_handle_pending(void);
+72:	void ukplat_lcpu_restore_irqf(unsigned long);
+63:	unsigned long ukplat_lcpu_save_irqf(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/memory.c:
+39:	void ukplat_stack_set_current_thread(void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/serial_console.c:
+59:	void _libkvmplat_init_serial_console(void);
+93:	int _libkvmplat_serial_getc(void);
+81:	void _libkvmplat_serial_putc(char);
+88:	static int serial_rx_ready(void);
+68:	static int serial_tx_empty(void);
+73:	static void serial_write(char);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/setup.c:
+435:	void _libkvmplat_entry(void *);
+63:	static void _convert_mbinfo(struct multiboot_info *);
+136:	static void _get_cmdline(struct uk_bootinfo *);
+167:	static void _init_initrd(struct uk_bootinfo *);
+156:	static void _init_mem(struct uk_bootinfo *);
+430:	static void _libkvmplat_entry2(void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/time.c:
+48:	__nsec ukplat_monotonic_clock(void);
+83:	void ukplat_time_fini(void);
+87:	uint32_t ukplat_time_get_irq(void);
+70:	void ukplat_time_init(void);
+54:	__nsec ukplat_wall_clock(void);
+63:	static int timer_handler(void *);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/traps.c:
+100:	void do_double_fault(struct __regs *, unsigned long);
+99:	void do_nmi(struct __regs *, unsigned long);
+101:	void do_virt_error(struct __regs *, unsigned long);
+188:	void traps_fini(void);
+181:	void traps_init(void);
+44:	static void gdt_init(void);
+106:	static void idt_fillgate(unsigned int, void *, unsigned int);
+124:	static void idt_init(void);
+70:	static void tss_init(void);
+
+File /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/kvm/x86/tscclock.c:
+383:	void time_block_until(__snsec);
+300:	__u64 tscclock_epochoffset(void);
+217:	int tscclock_init(void);
+199:	__u64 tscclock_monotonic(void);
+137:	static void i8254_delay(unsigned int);
+123:	static unsigned int i8254_gettick(void);
+170:	static __u64 rtc_gettimeofday(void);
+160:	static __u8 rtc_read(__u8);
+Quit
++bt
+#0  0x000000000010c2b1 in inb (port=18) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010c567 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010c7dd in virtio_cread8 (addr=0x0, offset=18 '\022') at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010d27a in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:380
+#4  0x000000000010aa2a in virtio_device_reinit (vdev=0x3ffe1010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+#7  0x000000000010a47a in pci_driver_add_device (drv=0x13e100 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a6a7 in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a726 in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010a815 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x0000000000109e60 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x000000000011e8a7 in uk_bus_probe (b=0x13e000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x000000000011e9de in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x000000000011ea24 in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+196	in /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h
+#15 0x000000000011de52 in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105ca9 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()
++bt
+#0  0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010c567 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, 
+    type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010c7dd in virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010d27a in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:380
+#4  0x000000000010aa2a in virtio_device_reinit (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+#7  0x000000000010a47a in pci_driver_add_device (drv=0x13e100 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a6a7 in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a726 in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010a815 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x0000000000109e60 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x000000000011e8a7 in uk_bus_probe (b=0x13e000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x000000000011e9de in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x000000000011ea24 in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+#15 0x000000000011de52 in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105ca9 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()
++focus cmd
+Focus set to cmd window.
+Quit
++bt
+#0  0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010c567 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, 
+    type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010c7dd in virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010d27a in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:380
+#4  0x000000000010aa2a in virtio_device_reinit (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+#7  0x000000000010a47a in pci_driver_add_device (drv=0x13e100 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a6a7 in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a726 in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010a815 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x0000000000109e60 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x000000000011e8a7 in uk_bus_probe (b=0x13e000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x000000000011e9de in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x000000000011ea24 in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+#15 0x000000000011de52 in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105ca9 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()
++c
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
++bat
+Undefined command: "bat".  Try "help".
++bt
+#0  0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010c567 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, 
+    type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010c7dd in virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010d27a in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:380
+#4  0x000000000010aa2a in virtio_device_reinit (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+#7  0x000000000010a47a in pci_driver_add_device (drv=0x13e100 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a6a7 in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a726 in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010a815 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x0000000000109e60 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x000000000011e8a7 in uk_bus_probe (b=0x13e000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x000000000011e9de in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x000000000011ea24 in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+#15 0x000000000011de52 in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105ca9 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()
++frame 5
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
++frame 6
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+warning: Source file is more recent than executable.
++p vpci_dev->vdev
+$1 = {features = 0, vqs = {tqh_first = 0x0, tqh_last = 0x0}, priv = 0x0, id = {virtio_device_id = 4186}, 
+  cops = 0x13e0a0 <vpci_legacy_ops>, vdrv = 0x13e1e0 <vfs_drv>, status = VIRTIO_DEV_RESET}
++p pci_dev
+$2 = (struct pci_device *) 0x3ffe0010
++p pci_dev->vdev.id.subsystem_device_id
+There is no member named vdev.
++p pci_dev->id.subsystem_device_id
+$3 = 4352
++p pci_dev->id.device_id
+$4 = 4186
++p/x pci_dev->id.device_id
+$5 = 0x105a
++p/x pci_dev->id.subsystem_device_id
+$6 = 0x1100
++p/x pci_dev->id.subsystem_vendor_id
+$7 = 0x1af4
++p/x pci_dev->id.vendor_id
+$8 = 0x1af4
++bt
+#0  0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010c567 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, 
+    type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010c7dd in virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010d27a in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:380
+#4  0x000000000010aa2a in virtio_device_reinit (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010abcc in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:147
+#6  0x000000000010d51d in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:490
+#7  0x000000000010a47a in pci_driver_add_device (drv=0x13e100 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a6a7 in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a726 in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010a815 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x0000000000109e60 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x000000000011e8a7 in uk_bus_probe (b=0x13e000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x000000000011e9de in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x000000000011ea24 in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+#15 0x000000000011de52 in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105ca9 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()
++l
++n
++n
++n
+_virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
++n
++n
++p count
+$9 = 1
++p i
+$10 = 0
++n
++c
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+0x000000000010c2b1 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
++n
++n
++n
+_virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
++n
++n
++n
++n
+virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:227
++n
++n
+vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci.c:383
++p vdev->vdrv
+$11 = (struct virtio_driver *) 0x13e1e0 <vfs_drv>
++p *vdev->vdrv
+$12 = {next = {tqe_next = 0x0, tqe_prev = 0x13e1a0 <v9p_drv>}, dev_ids = 0x13a134 <vfs_dev_id>, 
+  init = 0x10e9c1 <virtio_fs_drv_init>, add_dev = 0x10e9fc <virtio_fs_add_dev>}
++p *vdev->vdrv.dev_ids
+$13 = {virtio_device_id = 4186}
++p/x *vdev->vdrv.dev_ids
+$14 = {virtio_device_id = 0x105a}
++p/x *vdev->vdrv.dev_ids[0]
+Structure has no component named operator*.
++p/x vdev->vdrv.dev_ids[0]
+$15 = {virtio_device_id = 0x105a}
++p/x vdev->vdrv.dev_ids[1]
+$16 = {virtio_device_id = 0x0}
++p/x vdev->vdrv.dev_ids[2]
+$17 = {virtio_device_id = 0x61}
++p/x vdev->vdrv.dev_ids[3]
+$18 = {virtio_device_id = 0x7341}
++p/x vdev->vdrv.dev_ids[0]
+$19 = {virtio_device_id = 0x105a}
++p/x vdev->vdrv.dev_ids
+$20 = 0x13a134
++p/x *vdev->vdrv.dev_ids
+$21 = {virtio_device_id = 0x105a}
++q
++focus cmd
+Focus set to cmd window.
++bt
+#0  0x000000000010da23 in inb (port=18)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/include/x86/cpu.h:214
+#1  0x000000000010dcd9 in _virtio_cread_bytes (addr=0x0, offset=18 '\022', buf=0x3ff1fd1f, len=1, 
+    type_len=1)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:97
+#2  0x000000000010df4f in virtio_cread8 (addr=0x0, offset=18 '\022')
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/include/virtio/virtio_config.h:226
+#3  0x000000000010eaca in vpci_legacy_pci_dev_reset (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci_modern.c:419
+#4  0x000000000010ac6d in virtio_device_reinit (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:107
+#5  0x000000000010ae3d in virtio_bus_register_device (vdev=0x3ffe1010)
+    at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_bus.c:154
+#6  0x000000000010ee29 in virtio_pci_add_dev (pci_dev=0x3ffe0010) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/drivers/virtio/virtio_pci_modern.c:530
+#7  0x000000000010a5fe in pci_driver_add_device (drv=0x1431a0 <virtio_pci_drv>, addr=0x3ff1fe74, devid=0x3ff1fe68) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:100
+#8  0x000000000010a8db in probe_function (bus=0, device=2, function=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:171
+#9  0x000000000010a95a in probe_bus (bus=0) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:192
+#10 0x000000000010aa58 in arch_pci_probe (pha=0x170000) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/pci_bus_x86.c:223
+#11 0x000000000010a040 in pci_probe () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/pci_bus.c:122
+#12 0x00000000001208a5 in uk_bus_probe (b=0x143000 <ph>) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:89
+#13 0x00000000001209dc in uk_bus_probe_all () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:126
+#14 0x0000000000120a6a in uk_bus_lib_init () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukbus/bus.c:137
+#15 0x000000000011fbfd in main_thread_func (arg=0x3fffff40) at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/lib/ukboot/boot.c:100
+#16 0x0000000000105cd4 in asm_thread_starter () at /home/andrii/Github/unikraft-andrii/BA/virtiofs_unikraft/unikraft/plat/common/x86/thread_start.S:39
+#17 0x0000000000000000 in ?? ()

@@ -31,29 +31,267 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "errno.h"
+#include "uk/alloc.h"
+#include "uk/arch/lcpu.h"
+#include "uk/essentials.h"
+#include "uk/print.h"
+#include "virtio/virtqueue.h"
+#include <stdint.h>
 #include <virtio/virtio_bus.h>
 #include <virtio/virtio_fs.h>
 #include <virtio/virtio_ids.h>
 #include <virtio/virtio_config.h>
 #include <virtio/virtio_types.h>
+#include <uk/sglist.h>
+#include <uk/plat/spinlock.h>
 
 #define DRIVER_NAME	"virtio-fs"
+static struct uk_alloc *a;
+
+/* List of initialized virtio fs devices. */
+static UK_LIST_HEAD(virtio_fs_device_list);
+static __spinlock virtio_fs_device_list_lock;
 
 struct virtio_fs_device {
 	/* Virtio device. */
 	struct virtio_dev *vdev;
+	/* Name associated with this file system.. */
+	char *tag;
+	/* Total number of request virtqueues exposed by device */
+	__virtio_le32 num_request_queues;
+	/* Entry within the virtio devices' list. */
+	struct uk_list_head _list;
+	/* Virtqueue references. */
+	struct virtqueue *vq_hiprio;
+	struct virtqueue *vq_notify;
+	struct virtqueue **vq_req;
+	/* Hw queue identifier. */
+	uint16_t hwvq_id;
+	/* Scatter-gather list. */
+	struct uk_sglist sg;
+	//TODOFS: change
+	struct uk_sglist_seg sgsegs[128];
+	/* Spinlock protecting the sg list and the vq. */
+	__spinlock spinlock;
 };
+
+static inline void virtio_fs_feature_set(struct virtio_fs_device *d)
+{
+	d->vdev->features = 0;
+	// VIRTIO_FEATURE_SET(d->vdev->features, VIRTIO_9P_F_MOUNT_TAG);
+	VIRTIO_FEATURE_SET(d->vdev->features, VIRTIO_F_VERSION_1);
+}
+
+static inline int virtio_fs_scan_device_config(struct virtio_fs_device *d)
+{
+	/* get tag */
+	for (int i = 0; i < 9; i++) {
+		if (0 > virtio_modern_config_get(d->vdev,
+				__offsetof(struct virtio_fs_config, tag) + i*4,
+				&d->tag[i*4], 4)) {
+			uk_pr_err(DRIVER_NAME": Failed to read the tag on the\
+			device %p\n", d);
+			return -1;
+		}
+		// if (d->tag[i*4 + 3] == '\0')
+		// 	break;
+	}
+	d->tag[36] = '\0';
+
+	if (0 > virtio_modern_config_get(d->vdev,
+		__offsetof(struct virtio_fs_config, num_request_queues),
+		&d->num_request_queues, 4)) {
+		uk_pr_err(DRIVER_NAME": Failed to read num_request_queues on \
+		the device %p\n", d);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int virtio_fs_feature_negotiate(struct virtio_fs_device *d)
+{
+	__u64 host_features;
+	uint8_t status;
+	int rc = 0;
+
+	host_features = virtio_feature_get(d->vdev);
+
+	d->tag = uk_calloc(a, 37, sizeof(*d->tag));
+	if (unlikely(!d->tag)) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	if (0 > virtio_fs_scan_device_config(d)) {
+		rc = -EAGAIN;
+		goto free_mem;
+	}
+
+	d->vdev->features &= host_features;
+
+	virtio_feature_set(d->vdev, d->vdev->features);
+	rc = virtio_dev_status_update(d->vdev, VIRTIO_CONFIG_S_FEATURES_OK);
+	if (rc)
+		goto free_mem;
+
+	status = virtio_dev_status_get(d->vdev);
+	if ((status & VIRTIO_CONFIG_S_FEATURES_OK) == 0) {
+		uk_pr_err("Desired features were not accepted.\n");
+		rc = -ENOTSUP;
+		goto free_mem;
+	}
+	return 0;
+
+free_mem:
+	uk_free(a, d->tag);
+out:
+	return rc;
+}
+
+static int virtio_fs_recv (struct virtqueue *vq, void *priv)
+{
+	(void) vq;
+	(void) priv;
+
+
+	return 0;
+}
+
+static int virtio_fs_vq_alloc(struct virtio_fs_device *d)
+{
+	__virtio_le32 vq_avail = 0;
+	__u16 qdesc_size[d->num_request_queues + 1];
+	int rc = 0;
+
+	vq_avail = virtio_find_vqs(d->vdev,
+				d->num_request_queues + 1, qdesc_size);
+	if (unlikely(vq_avail != d->num_request_queues + 1)) {
+		uk_pr_err(DRIVER_NAME": Expected %" __PRIvirtio_le32 " queues,\
+			  found %" __PRIvirtio_le32 "\n",
+			  d->num_request_queues + 1, vq_avail);
+		return -ENOMEM;
+	}
+	d->vq_req = uk_calloc(a, d->num_request_queues,
+				sizeof(struct virtqueue *));
+	if (!d->vq_req)
+		return -ENOMEM;
+
+	uk_sglist_init(&d->sg, ARRAY_SIZE(d->sgsegs), &d->sgsegs[0]);
+
+	/* Initialize the hiprio virtqueue first */
+	d->vq_hiprio = virtio_vqueue_setup(d->vdev, 0, qdesc_size[0],
+					  virtio_fs_recv, a);
+	if (unlikely(PTRISERR(d->vq_hiprio))) {
+		uk_pr_err(DRIVER_NAME": Failed to set up the hiprio virtqueue \
+			%"__PRIu16"\n", 0);
+		rc = PTR2ERR(d->vq_hiprio);
+		goto free_mem;
+	}
+	d->vq_hiprio->priv = d;
+	/* Initialize the request virtqueues */
+	for (uint16_t i = 0; i < d->num_request_queues; i++) {
+		d->vq_req[i] = virtio_vqueue_setup(d->vdev, i+1, qdesc_size[i],
+					  virtio_fs_recv, a);
+		if (unlikely(PTRISERR(d->vq_req[i]))) {
+			uk_pr_err(DRIVER_NAME": Failed to set up a request \
+				virtqueue %"__PRIu16"\n", i);
+			rc = PTR2ERR(d->vq_req[i]);
+			goto free_mem;
+		}
+		d->vq_req[i]->priv = d;
+	}
+
+	return 0;
+
+free_mem:
+	uk_free(a, d->vq_req);
+	return rc;
+}
+
+static int virtio_fs_configure(struct virtio_fs_device *d)
+{
+	int rc = 0;
+
+	rc = virtio_fs_feature_negotiate(d);
+	if (rc != 0) {
+		uk_pr_err(DRIVER_NAME": Failed to negotiate the device feature %d\n",
+			rc);
+		rc = -EINVAL;
+		goto out_status_fail;
+	}
+	rc = virtio_fs_vq_alloc(d);
+	if (rc) {
+		uk_pr_err(DRIVER_NAME": Could not allocate virtqueue\n");
+		goto out_status_fail;
+	}
+
+	uk_pr_info(DRIVER_NAME": Configured: features=0x%lx tag=%s\n",
+			d->vdev->features, d->tag);
+out:
+	return rc;
+
+out_status_fail:
+	virtio_dev_status_update(d->vdev, VIRTIO_CONFIG_STATUS_FAIL);
+	goto out;
+}
+
+static int virtio_fs_start(struct virtio_fs_device *d)
+{
+	virtqueue_intr_enable(d->vq_hiprio);
+	for (__virtio_le32 i = 0; i < d->num_request_queues; i++)
+		virtqueue_intr_enable(d->vq_req[i]);
+	virtio_dev_drv_up(d->vdev);
+	uk_pr_info(DRIVER_NAME": %s started\n", d->tag);
+
+	return 0;
+}
 
 static int virtio_fs_drv_init(struct uk_alloc *drv_allocator)
 {
-	uk_pr_err("init()\n");
-	return 0;
+	int rc = 0;
+
+	if (unlikely(!drv_allocator)) {
+		rc = -EINVAL;
+		goto out;
+	}
+
+	a = drv_allocator;
+
+out:
+	return rc;
 }
 
 static int virtio_fs_add_dev(struct virtio_dev *vdev)
 {
-	uk_pr_err("add()\n");
-	return 0;
+	struct virtio_fs_device *d;
+	int rc = 0;
+
+	UK_ASSERT(vdev != NULL);
+
+	d = uk_calloc(a, 1, sizeof(*d));
+	if (!d) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	ukarch_spin_init(&d->spinlock);
+	d->vdev = vdev;
+	virtio_fs_feature_set(d);
+	rc = virtio_fs_configure(d);
+	if (rc)
+		goto out_free;
+	rc = virtio_fs_start(d);
+	if (rc)
+		goto out_free;
+
+	ukarch_spin_lock(&virtio_fs_device_list_lock);
+	uk_list_add(&d->_list, &virtio_fs_device_list);
+	ukarch_spin_unlock(&virtio_fs_device_list_lock);
+out:
+	return rc;
+out_free:
+	uk_free(a, d);
+	goto out;
 }
 
 static const struct virtio_dev_id vfs_dev_id[] = {

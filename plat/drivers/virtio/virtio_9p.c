@@ -377,7 +377,6 @@ static int virtio_9p_feature_negotiate(struct virtio_9p_device *d)
 		goto out;
 	}
 
-
 	if (virtio_config_get(d->vdev,
 			  __offsetof(struct virtio_9p_config, tag),
 			  d->tag, tag_len, 1) < 0) {

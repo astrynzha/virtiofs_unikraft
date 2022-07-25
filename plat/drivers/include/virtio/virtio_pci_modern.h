@@ -80,6 +80,7 @@
 #ifndef __PLAT_DRV_VIRTIO_PCI_MODERN_H__
 #define __PLAT_DRV_VIRTIO_PCI_MODERN_H__
 
+#include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus __ */
@@ -87,36 +88,51 @@ extern "C" {
 #include <uk/arch/types.h>
 #include <virtio/virtio_types.h>
 #include <uk/list.h>
+#include <pci/pci_bus.h>
 
 
+// TODOFS:  refactoring: change the offset/shift/mask suffixes to o/s/m
+
+#define PCI_BAR_OFFSET(bar)		(PCI_BASE_ADDRESS_0 + 4 * (bar))
 
 /* The PCI virtio capability header: */
 struct virtio_pci_cap {
-	__u8 vndr;		/* Generic PCI field: PCI_CAP_ID_VNDR */
-	__u8 next;		/* Generic PCI field: pointer to the next
-				   capability. 0 if this is the last one */
-	__u8 len;		/* Generic PCI field: capability length */
-	__u8 cfg_type;		/* Identifies the structure. */
-	__u8 bar;		/* Where to find it. */
-	__u8 id;		/* Multiple capabilities of the same type */
-	__u8 padding[2];	/* Pad to full dword. */
-	__u8 offset;		/* Offset within bar. */
-	__u8 length;		/* Length of the structure, in bytes. */
+	uint8_t vndr;		/* Generic PCI field: PCI_CAP_ID_VNDR */
+	uint8_t next;		/* Generic PCI field: pointer to the next
+				 * capability. 0 if this is the last one */
+	uint8_t cap_len;	/* Generic PCI field: capability length */
+	uint8_t cfg_type;	/* Identifies the structure. */
+	uint8_t bar;		/* Where to find it. */
+	uint8_t id;		/* Multiple capabilities of the same type */
+	uint8_t padding[2];	/* Pad to full dword. */
+	uint32_t struct_offset;	/* Offset within bar. */
+	uint32_t struct_len;	/* Length of the structure, described by this
+				 * capability, in bytes. */
 };
 
-#define VIRTIO_PCI_CAP_VENDOR_ID	0x09 /* Identifies a virtio capability */
-#define VIRTIO_PCI_MODERN_MAX_BARS	6
+#define VIRTIO_PCI_CAP_VENDOR_ID		0x09 /* Identifies a virtio capability */
+#define VIRTIO_PCI_MODERN_MAX_BARS		6
 
 /* Macro versions of offsets: */
+#define VIRTIO_PCI_CAP_LEN_OFFSET(capreg)	(capreg)
+#define VIRTIO_PCI_CAP_LEN_SHIFT		16
+#define VIRTIO_PCI_CAP_LEN_MASK			0x000000FF
+
 #define VIRTIO_PCI_CAP_CFG_TYPE_OFFSET(capreg)	(capreg)
 #define VIRTIO_PCI_CAP_CFG_TYPE_SHIFT		24
 #define VIRTIO_PCI_CAP_CFG_TYPE_MASK		0x000000FF
 
 #define VIRTIO_PCI_CAP_BAR_OFFSET(capreg)	(capreg+4)
 #define VIRTIO_PCI_CAP_BAR_SHIFT		0
-#define VIRTIO_PCI_CAP_BAR_MASK		0x000000FF
+#define VIRTIO_PCI_CAP_BAR_MASK			0x000000FF
 
+#define VIRTIO_PCI_CAP_S_OFFSET_OFFSET(capreg)	(capreg+8)
+#define VIRTIO_PCI_CAP_S_OFFSET_SHIFT		0
+#define VIRTIO_PCI_CAP_S_OFFSET_MASK		0xFFFFFFFF
 
+#define VIRTIO_PCI_STRUCT_LEN_OFFSET(capreg)	(capreg+12)
+#define VIRTIO_PCI_STRUCT_LEN_SHIFT		0
+#define VIRTIO_PCI_STRUCT_LEN_MASK		0xFFFFFFFF
 
 
 
@@ -176,57 +192,60 @@ struct virtio_pci_notify_cap {
 	__virtio_le32 notify_off_multiplier; /* Multiplier for queue_notify_off. */
 };
 
+#define VIRTIO_NOTIFY_MULTIPLIER_SHIFT	0
+#define VIRTIO_NOTIFY_MULTIPLIER_MASK	0xFFFFFFFF
 
 
 #define VENDOR_QUMRANET_VIRTIO		(0x1AF4)
-#define VIRTIO_PCI_ID_START		(0x1000)
-#define VIRTIO_PCI_LEGACY_ID_START	(VIRTIO_PCI_ID_START)
-#define VIRTIO_PCI_LEGACY_ID_END	(0x103F)
-#define VIRTIO_PCI_MODERN_ID_START	(0x1040)
-#define VIRTIO_PCI_MODERN_ID_END	(0x107F)
-#define VIRTIO_PCI_ID_END		(VIRTIO_PCI_MODERN_ID_END)
+#define VIRTIO_ID_START			(0x1000)
+#define VIRTIO_LEGACY_ID_START		(VIRTIO_PCI_ID_START)
+#define VIRTIO_LEGACY_ID_END		(0x103F)
+#define VIRTIO_MODERN_ID_START		(0x1040)
+#define VIRTIO_MODERN_ID_END		(0x107F)
+#define VIRTIO_ID_END			(VIRTIO_PCI_MODERN_ID_END)
 
 
-/* TODOFS: remove after done
-#define VIRTIO_PCI_MODERN_CAP_VNDR		0
-#define VIRTIO_PCI_MODERN_CAP_NEXT		1
-#define VIRTIO_PCI_MODERN_CAP_LEN		2
-#define VIRTIO_PCI_MODERN_CAP_CFG_TYPE		3
-#define VIRTIO_PCI_MODERN_CAP_BAR		4
-#define VIRTIO_PCI_MODERN_CAP_OFFSET		8
-#define VIRTIO_PCI_MODERN_CAP_LENGTH		12
+#define VIRTIO_MODERN_CAP_VNDR		0
+#define VIRTIO_MODERN_CAP_NEXT		1
+#define VIRTIO_MODERN_CAP_LEN		2
+#define VIRTIO_MODERN_CAP_CFG_TYPE	3
+#define VIRTIO_MODERN_CAP_BAR		4
+#define VIRTIO_MODERN_CAP_OFFSET	8
+#define VIRTIO_MODERN_CAP_LENGTH	12
 
-#define VIRTIO_PCI_MODERN_NOTIFY_CAP_MULT	16
+#define VIRTIO_MODERN_NOTIFY_CAP_MULT	16
 
-#define VIRTIO_PCI_MODERN_COMMON_DFSELECT	0
-#define VIRTIO_PCI_MODERN_COMMON_DF		4
-#define VIRTIO_PCI_MODERN_COMMON_GFSELECT	8
-#define VIRTIO_PCI_MODERN_COMMON_GF		12
-#define VIRTIO_PCI_MODERN_COMMON_MSIX		16
-#define VIRTIO_PCI_MODERN_COMMON_NUMQ		18
-#define VIRTIO_PCI_MODERN_COMMON_STATUS		20
-#define VIRTIO_PCI_MODERN_COMMON_CFGGENERATION	21
-#define VIRTIO_PCI_MODERN_COMMON_Q_SELECT	22
-#define VIRTIO_PCI_MODERN_COMMON_Q_SIZE		24
-#define VIRTIO_PCI_MODERN_COMMON_Q_MSIX		26
-#define VIRTIO_PCI_MODERN_COMMON_Q_ENABLE	28
-#define VIRTIO_PCI_MODERN_COMMON_Q_NOFF		30
-#define VIRTIO_PCI_MODERN_COMMON_Q_DESCLO	32
-#define VIRTIO_PCI_MODERN_COMMON_Q_DESCHI	36
-#define VIRTIO_PCI_MODERN_COMMON_Q_AVAILLO	40
-#define VIRTIO_PCI_MODERN_COMMON_Q_AVAILHI	44
-#define VIRTIO_PCI_MODERN_COMMON_Q_USEDLO	48
-#define VIRTIO_PCI_MODERN_COMMON_Q_USEDHI	52
-*/
+#define VIRTIO_MODERN_COMMON_DFSELECT	0
+#define VIRTIO_MODERN_COMMON_DF		4
+#define VIRTIO_MODERN_COMMON_GFSELECT	8
+#define VIRTIO_MODERN_COMMON_GF		12
+#define VIRTIO_MODERN_COMMON_MSIX	16
+#define VIRTIO_MODERN_COMMON_NUMQ	18
+#define VIRTIO_MODERN_COMMON_STATUS	24
+#define VIRTIO_MODERN_COMMON_CFGGEN	21
+#define VIRTIO_MODERN_COMMON_Q_SELECT	22
+#define VIRTIO_MODERN_COMMON_Q_SIZE	24
+#define VIRTIO_MODERN_COMMON_Q_MSIX	26
+#define VIRTIO_MODERN_COMMON_Q_ENABLE	28
+#define VIRTIO_MODERN_COMMON_Q_NOFF	30
+#define VIRTIO_MODERN_COMMON_Q_DESCLO	32
+#define VIRTIO_MODERN_COMMON_Q_DESCHI	36
+#define VIRTIO_MODERN_COMMON_Q_AVAILLO	40
+#define VIRTIO_MODERN_COMMON_Q_AVAILHI	44
+#define VIRTIO_MODERN_COMMON_Q_USEDLO	48
+#define VIRTIO_MODERN_COMMON_Q_USEDHI	52
 
 
 
-#define VIRTIO_PCI_HOST_FEATURES        0    /* 32-bit r/o */
-#define VIRTIO_PCI_GUEST_FEATURES       4    /* 32-bit r/w */
-#define VIRTIO_PCI_QUEUE_PFN            8    /* 32-bit r/w */
-#define VIRTIO_PCI_QUEUE_SIZE           12   /* 16-bit r/o */
-#define VIRTIO_PCI_QUEUE_SEL            14   /* 16-bit r/w */
-#define VIRTIO_PCI_QUEUE_NOTIFY         16   /* 16-bit r/w */
+#define VIRTIO_HOST_FEATURES		0    /* 32-bit r/o */
+#define VIRTIO_GUEST_FEATURES		4    /* 32-bit r/w */
+#define VIRTIO_QUEUE_PFN		8    /* 32-bit r/w */
+#define VIRTIO_QUEUE_SIZE		12   /* 16-bit r/o */
+#define VIRTIO_QUEUE_SEL		14   /* 16-bit r/w */
+#define VIRTIO_QUEUE_NOTIFY		16   /* 16-bit r/w */
+
+#define SYS_RES_MEMORY			3    /* i/o memory */
+#define SYS_RES_IOPORT			4    /* i/o ports */
 
 /*
  * Shift size used for writing physical queue address to QUEUE_PFN

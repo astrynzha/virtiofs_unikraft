@@ -282,7 +282,7 @@ int arch_pci_find_next_cap(struct pci_device *pci_dev, uint16_t vndr_id,
  * @return int 0 if found, -1 if none found
  */
 int arch_pci_find_cap(struct pci_device *pci_dev,
-				    uint16_t target_cap_vndr, uint8_t *cap)
+		      uint16_t target_cap_vndr, uint8_t *cap)
 {
 	uint8_t hdr_type, cap_vndr, nxt_cap, cap_ptr_offset;
 	uint16_t status = 0;
@@ -353,7 +353,7 @@ cap_exit:
  * @return int 0 if found, -1 if none found
  */
 int arch_pci_find_next_cap(struct pci_device *pci_dev, uint16_t target_vndr,
-				     uint8_t curr_cap, uint8_t *cap)
+			   uint8_t curr_cap, uint8_t *cap)
 {
 	uint8_t vndr, nxt_cap;
 
