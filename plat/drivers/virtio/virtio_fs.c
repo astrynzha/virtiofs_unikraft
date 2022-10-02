@@ -267,15 +267,13 @@ static int virtio_fs_request(struct uk_fuse_dev *fuse_dev,
 	struct virtio_fs_device *dev;
 	unsigned long flags;
 	bool failed = false;
-	size_t read_segs, write_segs;
+	size_t read_segs, write_segs = 0;
 	int host_notified = 0;
 	int rc = 0;
 
 	UK_ASSERT(fuse_dev);
 	UK_ASSERT(req);
-	/* TODOFS: are requests allowed to have only one? */
 	UK_ASSERT(req->in_buffer);
-	UK_ASSERT(req->out_buffer);
 
 	uk_fusereq_get(req);
 	dev = fuse_dev->priv;
@@ -295,14 +293,17 @@ static int virtio_fs_request(struct uk_fuse_dev *fuse_dev,
 
 	read_segs = dev->sg.sg_nseg;
 
-	rc = uk_sglist_append(&dev->sg, req->out_buffer,
-			      req->out_buffer_size);
-	if (rc < 0) {
-		failed = true;
-		goto out_unlock;
-	}
+	/* no reply is expected, when req->out_buffer is NULL */
+	if (req->out_buffer) {
+		rc = uk_sglist_append(&dev->sg, req->out_buffer,
+				req->out_buffer_size);
+		if (rc < 0) {
+			failed = true;
+			goto out_unlock;
+		}
 
-	write_segs = dev->sg.sg_nseg - read_segs;
+		write_segs = dev->sg.sg_nseg - read_segs;
+	}
 
 	/* TODOFS: write vq management code (i.e., which req virtqueue to use)*/
 	rc = virtqueue_buffer_enqueue(dev->vq_req[0], req, &dev->sg,

@@ -534,6 +534,16 @@ struct fuse_entry_out {
 };
 
 struct fuse_forget_in {
+	/*
+	* This counter keeps an inode alive during the FUSE session.
+	* Incremented when the FUSE inode number (ino, not nodeid)
+	* is sent in a reply
+	* (FUSE_LOOKUP, FUSE_READDIRPLUS, etc).  Decremented when an inode is
+	* released by a FUSE_FORGET request.
+	*
+	* From: qemu/tools/virtiofsd/passthrough_ll.c
+	* https://github.com/qemu
+	*/
 	uint64_t    nlookup;
 };
 

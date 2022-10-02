@@ -38,7 +38,6 @@ int uk_fusereq_put(struct uk_fuse_req *req)
 	return last;
 }
 
-
 int uk_fusereq_receive_cb(struct uk_fuse_req *req, uint32_t recv_size __unused)
 {
 	if (UK_READ_ONCE(req->state) != UK_FUSEREQ_SENT)
@@ -65,6 +64,9 @@ int uk_fusereq_error(struct uk_fuse_req *req)
 	if (UK_READ_ONCE(req->state) != UK_FUSEREQ_RECEIVED)
 		return -EIO;
 
+	if (!req->out_buffer) /* No reply was expected */
+		goto end;
+
 	fuse_error = ((struct fuse_out_header *) req->out_buffer)->error;
 	if (fuse_error) {
 		uk_pr_err("FUSE reply error code: %" __PRIs32 " (%s) "
@@ -72,6 +74,7 @@ int uk_fusereq_error(struct uk_fuse_req *req)
 		return fuse_error;
 	}
 
+end:
 	return 0;
 }
 

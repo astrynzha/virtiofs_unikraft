@@ -100,124 +100,149 @@ typedef struct
 
 typedef struct
 {
-	struct fuse_in_header   hdr;
-	struct fuse_create_in   create;
-	char                    name[NAME_MAX + 1];
+	struct fuse_in_header	hdr;
+	struct fuse_create_in	create;
+	char			name[NAME_MAX + 1];
 } FUSE_CREATE_IN;
 
 typedef struct
 {
-	struct fuse_out_header  hdr;
-	struct fuse_entry_out   entry;
-	struct fuse_open_out    open;
+	struct fuse_out_header	hdr;
+	struct fuse_entry_out	entry;
+	struct fuse_open_out	open;
 } FUSE_CREATE_OUT;
 
 typedef struct
 {
-	struct fuse_in_header   hdr;
-	struct fuse_getattr_in  getattr;
+	struct fuse_in_header	hdr;
+	struct fuse_getattr_in	getattr;
 } FUSE_GETATTR_IN;
 
 typedef struct
 {
-	struct fuse_out_header   hdr;
-	struct fuse_attr_out     attr;
+	struct fuse_out_header	hdr;
+	struct fuse_attr_out	attr;
 } FUSE_GETATTR_OUT;
 
 typedef struct
 {
-	struct fuse_in_header   hdr;
-	char                    name[NAME_MAX + 1];
+	struct fuse_in_header	hdr;
+	char			name[NAME_MAX + 1];
 } FUSE_LOOKUP_IN;
 
 typedef struct
 {
-	struct fuse_out_header  hdr;
-	struct fuse_entry_out   entry;
+	struct fuse_out_header	hdr;
+	struct fuse_entry_out	entry;
 } FUSE_LOOKUP_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_open_in     open;
+	struct fuse_in_header	hdr;
+	struct fuse_open_in	open;
 
 } FUSE_OPEN_IN;
 
 typedef struct
 {
-    struct fuse_out_header   hdr;
-    struct fuse_open_out     open;
+	struct fuse_out_header	hdr;
+	struct fuse_open_out	open;
 
 } FUSE_OPEN_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_flush_in    flush;
+	struct fuse_in_header	hdr;
+	struct fuse_flush_in	flush;
 
 } FUSE_FLUSH_IN;
 
 typedef struct
 {
-    struct fuse_out_header  hdr;
-
+	struct fuse_out_header	hdr;
 } FUSE_FLUSH_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_setattr_in  setattr;
+	struct fuse_in_header	hdr;
+	struct fuse_setattr_in	setattr;
 
 } FUSE_SETATTR_IN;
 
 typedef struct
 {
-    struct fuse_out_header   hdr;
-    struct fuse_attr_out     attr;
+	struct fuse_out_header	hdr;
+	struct fuse_attr_out	attr;
 
 } FUSE_SETATTR_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_release_in  release;
+	struct fuse_in_header	hdr;
+	struct fuse_release_in	release;
 
 } FUSE_RELEASE_IN;
 
 typedef struct
 {
-    struct fuse_out_header  hdr;
+	struct fuse_out_header	hdr;
 
 } FUSE_RELEASE_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_write_in    write;
-    char                    buf[];
+	struct fuse_in_header	hdr;
+	struct fuse_write_in	write;
+	char			buf[];
 
 } FUSE_WRITE_IN;
 
 typedef struct
 {
-    struct fuse_out_header  hdr;
-    struct fuse_write_out   write;
+	struct fuse_out_header	hdr;
+	struct fuse_write_out	write;
 
 } FUSE_WRITE_OUT;
 
 typedef struct
 {
-    struct fuse_in_header   hdr;
-    struct fuse_read_in     read;
+	struct fuse_in_header	hdr;
+	struct fuse_read_in	read;
 
 } FUSE_READ_IN;
 
 typedef struct
 {
-    struct fuse_out_header  hdr;
-    char                    buf[];
+	struct fuse_out_header	hdr;
+	char			buf[];
 
 } FUSE_READ_OUT;
+
+typedef struct
+{
+	struct fuse_in_header	hdr;
+	char			name[NAME_MAX + 1];
+
+} FUSE_UNLINK_IN;
+
+typedef struct
+{
+	struct fuse_out_header	hdr;
+
+} FUSE_UNLINK_OUT;
+
+typedef struct
+{
+	struct fuse_in_header	hdr;
+	struct fuse_forget_in	forget;
+
+} FUSE_FORGET_IN;
+
+typedef struct
+{
+	struct fuse_out_header	hdr;
+
+} FUSE_FORGET_OUT;
 
 void uk_fusereq_init(struct uk_fuse_req *req);
 void uk_fusereq_get(struct uk_fuse_req *req);

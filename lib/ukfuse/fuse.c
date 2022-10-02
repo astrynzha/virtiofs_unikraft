@@ -5,6 +5,7 @@
 #include "uk/assert.h"
 #include "uk/fusedev.h"
 #include "uk/fuse_i.h"
+#include "uk/fusedev_core.h"
 #include "uk/fusereq.h"
 #include "uk/fusedev_trans.h"
 #include "uk/print.h"
@@ -63,6 +64,87 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 		return rc;
 
 	return 0;
+}
+
+int 
+
+int uk_fuse_forget_request(struct uk_fuse_dev *dev, uint64_t nodeid,
+			   uint64_t nlookup)
+{
+	int rc = 0;
+	FUSE_FORGET_IN forget_in = {0};
+	FUSE_FORGET_OUT forget_out = {0};
+	struct uk_fuse_req *req;
+
+	FUSE_HEADER_INIT(&forget_in.hdr, FUSE_FORGET,
+		nodeid, sizeof(forget_in.forget));
+
+	forget_in.forget.nlookup = nlookup;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &forget_in;
+	req->in_buffer_size = forget_in.hdr.len;
+	req->out_buffer = NULL;
+	req->out_buffer_size = 0; // we don't expect a reply;
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+
+}
+
+/**
+ * @brief
+ *
+ * @param dev
+ * @param filename
+ * @param nlookup TODOFS: this number has to be tracked somewhere
+ * @return int
+ */
+int uk_fuse_delete_request(struct uk_fuse_dev *dev, const char *filename,
+			   uint64_t nodeid, uint64_t nlookup, bool is_dir,
+			   uint64_t parent_nodeid)
+{
+	int rc = 0;
+	FUSE_UNLINK_IN unlink_in = {0};
+	FUSE_UNLINK_OUT unlink_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+	if (strlen(filename) > NAME_MAX) {
+		uk_pr_err("Filename is larger than %d characters\n", NAME_MAX);
+		return -1;
+	}
+
+	FUSE_HEADER_INIT(&unlink_in.hdr, is_dir ? FUSE_RMDIR : FUSE_UNLINK,
+	parent_nodeid, strlen(filename) + 1);
+
+	strcpy(unlink_in.name, filename);
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &unlink_in;
+	req->in_buffer_size = unlink_in.hdr.len;
+	req->out_buffer = &unlink_out;
+	req->out_buffer_size = sizeof(unlink_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fuse_forget_request(dev, nodeid, nlookup);
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
 }
 
 /**
@@ -769,21 +851,26 @@ int test_method() {
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
 		    recv_message);
 
-	if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
-		uk_pr_err("uk_fuse_flush_request has failed \n");
-		goto free;
+	if ((rc = uk_fuse_delete_request(dev, "sometext.txt", 2, 1, false,
+		1))) {
+		uk_pr_err("uk_fuse_delete_request has failed \n");
 	}
 
-	if ((rc = uk_fuse_setattr_request(dev, ffc.nodeid, false, ffc.fh,
-		S_IFREG | S_IRWXU | S_IRWXG | S_IROTH, 0, 0, 0))) {
-		uk_pr_err("uk_fuse_setattr_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
+	// 	uk_pr_err("uk_fuse_flush_request has failed \n");
+	// 	goto free;
+	// }
 
-	if ((rc = uk_fuse_release_request(dev, false, ffc.fh, ffc.nodeid))) {
-		uk_pr_err("uk_fuse_setattr_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_setattr_request(dev, ffc.nodeid, false, ffc.fh,
+	// 	S_IFREG | S_IRWXU | S_IRWXG | S_IROTH, 0, 0, 0))) {
+	// 	uk_pr_err("uk_fuse_setattr_request has failed \n");
+	// 	goto free;
+	// }
+
+	// if ((rc = uk_fuse_release_request(dev, false, ffc.fh, ffc.nodeid))) {
+	// 	uk_pr_err("uk_fuse_setattr_request has failed \n");
+	// 	goto free;
+	// }
 
 	if ((rc = uk_fusedev_disconnect(dev)))
 		goto free;
