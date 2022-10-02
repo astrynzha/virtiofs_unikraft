@@ -38,6 +38,8 @@
 // #include <virtio/virtio_config.h>
 #include <virtio/virtio_types.h>
 
+#define VIRTIO_FS_HIPRIO_QUEUE_ID 0
+
 #define VIRTIO_FS_TAG_EXTRACT(tag_64, tag) 					\
 	do {								\
 		(tag) &=  (((typeof (features)) 1) << (bitpos));	\

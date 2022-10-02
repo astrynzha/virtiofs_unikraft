@@ -348,7 +348,7 @@ static struct pci_bus_handler ph __unused;
 
 #define PCI_CONF_IRQ                (0X3C)
 #define PCI_CONF_IRQ_SHFT           (0x0)
-#define PCI_CONF_IRQ_MASK           (0XFC)
+#define PCI_CONF_IRQ_MASK           (0XFF)
 
 #define PCI_CONF_IOBAR              (0x10)
 #define PCI_CONF_IOBAR_SHFT         (0x0)

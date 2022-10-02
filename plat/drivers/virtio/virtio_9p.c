@@ -148,6 +148,13 @@ static int virtio_9p_disconnect(struct uk_9pdev *p9dev)
 	return 0;
 }
 
+/**
+ * @brief
+ *
+ * @param p9dev comes from the VFS
+ * @param req comes from the uk9p
+ * @return int
+ */
 static int virtio_9p_request(struct uk_9pdev *p9dev,
 			     struct uk_9preq *req)
 {
@@ -203,7 +210,7 @@ static int virtio_9p_request(struct uk_9pdev *p9dev,
 			goto out_unlock;
 		}
 
-		/* Make eure there is sufficient space for Rerror replies. */
+		/* Make sure there is sufficient space for Rerror replies. */
 		if (recv_size < UK_9P_RERROR_MAXSIZE) {
 			uint32_t leftover = UK_9P_RERROR_MAXSIZE - recv_size;
 
@@ -252,6 +259,13 @@ static struct uk_9pdev_trans v9p_trans = {
 	.a              = NULL /* Set by the driver initialization. */
 };
 
+/**
+ * @brief callback, passed to a virtqueue. Called on a virtqueue interrupt
+ *
+ * @param vq
+ * @param priv
+ * @return int
+ */
 static int virtio_9p_recv(struct virtqueue *vq, void *priv)
 {
 	struct virtio_9p_device *dev;
@@ -344,6 +358,7 @@ static int virtio_9p_vq_alloc(struct virtio_9p_device *d)
 		rc = PTR2ERR(d->vq);
 	}
 
+	/* will be passed to the virtio_9p_recv callback */
 	d->vq->priv = d;
 
 exit:

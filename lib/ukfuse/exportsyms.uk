@@ -1,0 +1,14 @@
+# fuse.c
+test_method
+
+# fusereq.c
+uk_fusereq_get
+uk_fusereq_put
+uk_fusereq_receive_cb
+
+# fusedev.c
+uk_fusedev_req_to_freelist
+uk_fusedev_xmit_notify
+
+# fusedev_trans.c
+uk_fusedev_trans_register

@@ -120,6 +120,8 @@ struct virtio_config_ops {
 				      struct uk_alloc *a);
 	void (*vq_release)(struct virtio_dev *vdev, struct virtqueue *vq,
 				struct uk_alloc *a);
+	void (*vq_enable)(struct virtio_dev *vdev, struct virtqueue *vq);
+
 };
 
 /**
@@ -349,6 +351,15 @@ static inline int virtio_find_vqs(struct virtio_dev *vdev, __u16 total_vqs,
 		rc = vdev->cops->vqs_find(vdev, total_vqs, vq_size);
 
 	return rc;
+}
+
+static inline void virtio_vqueue_enable(struct virtio_dev *vdev,
+					struct virtqueue *vq)
+{
+	UK_ASSERT(vdev);
+
+	if (likely(vdev->cops->vq_enable))
+		vdev->cops->vq_enable(vdev, vq);
 }
 
 /**

@@ -410,6 +410,7 @@ static int virtio_pci_add_dev(struct pci_device *pci_dev)
 	/* Fetch PCI Device information */
 	vpci_dev->pdev = pci_dev;
 	vpci_dev->pci_base_addr = pci_dev->base;
+	vpci_dev->vdev.priv = vpci_dev;
 
 	/**
 	 * Probing for the legacy virtio device. We separate the legacy probing

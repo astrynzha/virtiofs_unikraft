@@ -161,6 +161,9 @@ static struct virtqueue
 				      struct uk_alloc *a);
 static void 	vpci_legacy_vq_release(struct virtio_dev *vdev,
 		struct virtqueue *vq, struct uk_alloc *a);
+static void vpci_modern_vq_enable(struct virtio_dev *vdev,
+				  struct virtqueue *vq);
+
 
 
 static int 	virtio_pci_handle(void *arg);
@@ -201,6 +204,9 @@ static int	vpci_modern_read_device_2(struct virtio_pci_modern_dev *vpdev,
 					  uint8_t off, uint16_t *buf);
 static int	vpci_modern_read_device_4(struct virtio_pci_modern_dev *vpdev,
 					  uint8_t off, uint32_t *buf);
+static void	vpci_modern_write_notify_2(struct virtio_pci_modern_dev *vpdev,
+					   uint16_t off,
+					   uint16_t val);
 
 static int 	virtio_pci_modern_add_dev(struct pci_device *pci_dev);
 
@@ -219,7 +225,20 @@ static struct virtio_config_ops vpci_legacy_ops = {
 	.vqs_find     = vpci_modern_pci_vq_find,
 	.vq_setup     = vpci_modern_vq_setup,
 	.vq_release   = vpci_legacy_vq_release,
+	.vq_enable    = vpci_modern_vq_enable,
 };
+
+static void vpci_modern_vq_enable(struct virtio_dev *vdev, struct virtqueue *vq)
+{
+	struct virtio_pci_modern_dev *vpdev = vdev->priv;
+
+	UK_ASSERT(vpdev);
+
+	vpci_modern_write_common_2(vpdev, VIRTIO_MODERN_COMMON_Q_SELECT,
+				   vq->queue_id);
+	vpci_modern_write_common_2(vpdev, VIRTIO_MODERN_COMMON_Q_ENABLE,
+				   1);
+}
 
 static void vpci_legacy_vq_release(struct virtio_dev *vdev,
 		struct virtqueue *vq, struct uk_alloc *a)
@@ -1309,7 +1328,8 @@ static int virtio_pci_handle(void *arg)
 	if (isr_status & VIRTIO_PCI_ISR_HAS_INTR) {
 		/* calls a callback of a vq each and returns its result */
 		UK_TAILQ_FOREACH(vq, &d->vdev.vqs, next) {
-			rc |= virtqueue_ring_interrupt(vq);
+			virtqueue_ring_interrupt(vq);
+			rc = 1;
 		}
 	}
 	return rc;
@@ -1385,9 +1405,18 @@ static int vpci_modern_pci_vq_find(struct virtio_dev *vdev, __u16 num_vqs,
 {
 	struct virtio_pci_modern_dev *vpdev = NULL;
 	int vq_cnt = 0, i = 0, rc = 0;
+	uint16_t max_num_vqs;
 
 	UK_ASSERT(vdev);
 	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	/* TODOFS: should it be here or somewhere else? */
+	max_num_vqs = vpci_modern_read_common_2(vpdev, VIRTIO_MODERN_COMMON_NUMQ);
+	if (num_vqs > max_num_vqs) {
+		uk_pr_err("num_vqs larger than the max number of vqs supported"
+			  "\n");
+		return -1;
+	}
 
 	/* Registering the interrupt for the device. Function forwards the
 	   interrupt to each vq of the device */
@@ -1452,7 +1481,7 @@ static struct virtqueue *vpci_modern_vq_setup(struct virtio_dev *vdev,
 	vrq = to_virtqueue_vring(vq);
 	/* Physical address of the queue */
 	/* TODOFS: refract:
-	 * crate a function in virtio_ring.c that returns these
+	 * create a function in virtio_ring.c that returns these
 	 */
 	desc_paddr = ukplat_virt_to_phys(vrq->vring.desc);
 	avail_paddr = ukplat_virt_to_phys(vrq->vring.avail);
@@ -1517,6 +1546,7 @@ static int virtio_pci_modern_add_dev(struct pci_device *pdev)
 	vpci_dev->vdev.id.virtio_device_id =
 		pdev->id.device_id - VIRTIO_MODERN_ID_START;
 	vpci_dev->vdev.cops = &vpci_legacy_ops;
+	vpci_dev->vdev.priv = vpci_dev;
 
 	rc = vpci_modern_map_configs(vpci_dev);
 	if (unlikely(rc)) {

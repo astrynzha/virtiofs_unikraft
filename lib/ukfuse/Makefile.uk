@@ -1,0 +1,9 @@
+$(eval $(call addlib_s,libukfuse,$(CONFIG_LIBUKFUSE)))
+
+CINCLUDES-$(CONFIG_LIBUKFUSE)		+= -I$(LIBUKFUSE_BASE)/include
+CXXINCLUDES-$(CONFIG_LIBUKFUSE)		+= -I$(LIBUKFUSE_BASE)/include
+
+LIBUKFUSE_SRCS-y += $(LIBUKFUSE_BASE)/fuse.c
+LIBUKFUSE_SRCS-y += $(LIBUKFUSE_BASE)/fusereq.c
+LIBUKFUSE_SRCS-y += $(LIBUKFUSE_BASE)/fusedev.c
+LIBUKFUSE_SRCS-y += $(LIBUKFUSE_BASE)/fusedev_trans.c
