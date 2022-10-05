@@ -198,7 +198,6 @@ static int virtio_fs_recv(struct virtqueue *vq, void *priv)
 	struct uk_fuse_req *req = NULL;
 	int rc = 0;
 	int handled = 0;
-	int32_t fuse_error = 0;
 
 	UK_ASSERT(vq);
 	UK_ASSERT(priv);
@@ -233,6 +232,8 @@ static int virtio_fs_recv(struct virtqueue *vq, void *priv)
 
 		/* Received not what expected (usually less). */
 		if (len != req->out_buffer_size) {
+			/* Not always an error. Used for debugging bc the text
+			is red */
 			uk_pr_err("out_buffer_size is %"__PRIu32 ", but "
 			"received %" __PRIu32 " bytes.\n", req->out_buffer_size,
 			len);
@@ -293,17 +294,20 @@ static int virtio_fs_request(struct uk_fuse_dev *fuse_dev,
 
 	read_segs = dev->sg.sg_nseg;
 
-	/* no reply is expected, when req->out_buffer is NULL */
-	if (req->out_buffer) {
-		rc = uk_sglist_append(&dev->sg, req->out_buffer,
-				req->out_buffer_size);
-		if (rc < 0) {
-			failed = true;
-			goto out_unlock;
-		}
+	/* no reply expected, when req->out_buffer == 0 */
+	if (req->out_buffer_size == 0)
+		goto skip_outbuf;
 
-		write_segs = dev->sg.sg_nseg - read_segs;
+	rc = uk_sglist_append(&dev->sg, req->out_buffer,
+			req->out_buffer_size);
+	if (rc < 0) {
+		failed = true;
+		goto out_unlock;
 	}
+
+	write_segs = dev->sg.sg_nseg - read_segs;
+
+skip_outbuf:
 
 	/* TODOFS: write vq management code (i.e., which req virtqueue to use)*/
 	rc = virtqueue_buffer_enqueue(dev->vq_req[0], req, &dev->sg,

@@ -64,7 +64,7 @@ int uk_fusereq_error(struct uk_fuse_req *req)
 	if (UK_READ_ONCE(req->state) != UK_FUSEREQ_RECEIVED)
 		return -EIO;
 
-	if (!req->out_buffer) /* No reply was expected */
+	if (req->out_buffer_size == 0) /* No reply was expected */
 		goto end;
 
 	fuse_error = ((struct fuse_out_header *) req->out_buffer)->error;

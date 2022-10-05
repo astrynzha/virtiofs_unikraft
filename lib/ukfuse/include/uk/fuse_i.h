@@ -928,6 +928,7 @@ struct fuse_notify_retrieve_in {
 /* Device ioctls: */
 #define FUSE_DEV_IOC_CLONE    _IOR(229, 0, uint32_t)
 
+/* Same as in lseek(2) */
 struct fuse_lseek_in {
 	uint64_t    fh;
 	uint64_t    offset;
@@ -935,6 +936,7 @@ struct fuse_lseek_in {
 	uint32_t    padding;
 };
 
+/* Same as in lseek(2) */
 struct fuse_lseek_out {
 	uint64_t    offset;
 };

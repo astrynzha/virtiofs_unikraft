@@ -244,6 +244,38 @@ typedef struct
 
 } FUSE_FORGET_OUT;
 
+typedef struct
+{
+	struct fuse_in_header	hdr;
+	struct fuse_mkdir_in	mkdir;
+	char			name[NAME_MAX + 1];
+
+} FUSE_MKDIR_IN;
+
+typedef struct
+{
+	struct fuse_out_header	hdr;
+	struct fuse_entry_out	entry;
+
+} FUSE_MKDIR_OUT;
+
+typedef struct
+{
+	struct fuse_in_header	hdr;
+	struct fuse_lseek_in	lseek;
+
+} FUSE_LSEEK_IN;
+
+typedef struct
+{
+	struct fuse_out_header	hdr;
+	struct fuse_lseek_out	lseek;
+
+} FUSE_LSEEK_OUT;
+
+
+
+
 void uk_fusereq_init(struct uk_fuse_req *req);
 void uk_fusereq_get(struct uk_fuse_req *req);
 int uk_fusereq_put(struct uk_fuse_req *req);

@@ -9,6 +9,7 @@
 #include "uk/fusereq.h"
 #include "uk/fusedev_trans.h"
 #include "uk/print.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -66,14 +67,184 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
-int 
+int uk_fuse_lseek_request(struct uk_fuse_dev *dev, uint64_t fh, uint64_t offset,
+			  uint32_t whence)
+{
+	int rc = 0;
+	FUSE_LSEEK_IN lseek_in = {0};
+	FUSE_UNLINK_OUT lseek_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+}
+
+/**
+ * @brief
+ *
+ * READDIRPLUS = READDIR + LOOKUP in one.
+ *
+ * @param dev
+ * @param buff_len Length of data to read.
+ * @param nodeid
+ * @param fh
+ * TODOFS: define suitable output. I defined such output because I needed to
+ * benchmark file listings
+ * @param[out] dirents an array of dirents.
+ * @param[out] num_dirents number of dirents that the function returns
+ * in @p dirents
+ * @return int
+ */
+int uk_fuse_readdirplus_request(struct uk_fuse_dev *dev, uint64_t buff_len,
+				uint64_t nodeid, uint64_t fh,
+				struct fuse_dirent *dirents,
+				size_t *num_dirents) {
+	int rc = 0;
+	FUSE_READ_IN read_in = {0};
+	FUSE_READ_OUT *read_out;
+	uint64_t offset = 0;
+	uint32_t remains;
+	struct uk_fuse_req *req;
+	struct fuse_direntplus *direntplus;
+	*num_dirents = 0;
+
+	UK_ASSERT(dev);
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	read_out = uk_calloc(dev->a, 1, sizeof(struct fuse_out_header)
+		+ buff_len * 2);
+
+	if (!read_out) {
+		uk_pr_err("Could not allocate memory\n");
+		return -1;
+	}
+
+	while (1) {
+		FUSE_HEADER_INIT(&read_in.hdr, FUSE_READDIRPLUS,
+				 nodeid, sizeof(read_in.read));
+
+		read_in.read.fh = fh;
+		read_in.read.offset = offset;
+		read_in.read.size = buff_len * 2;
+
+		req->in_buffer = &read_in;
+		req->in_buffer_size = read_in.hdr.len;
+		req->out_buffer = read_out;
+		req->out_buffer_size = sizeof(struct fuse_out_header)
+			+ read_in.read.size;
+
+		if ((rc = send_and_wait(dev, req)))
+			goto free;
+
+		remains = read_out->hdr.len - sizeof(struct fuse_out_header);
+		/* A successful request with no data means no more dirents */
+		if (!remains) {
+			uk_pr_debug("A successful request with no data."
+				    "I.e. no more dirents\n");
+			break;
+		}
+
+		direntplus = (struct fuse_direntplus *) read_out->buf;
+
+		uk_pr_debug("Dirents in request %" __PRIu64 ":\n",
+			read_in.hdr.unique);
+
+		while (remains > sizeof(struct fuse_direntplus)) {
+		/* At least one dirent is left */
+			uk_pr_debug("    %" __PRIu64 "/%s -> %" __PRIu64 "\n",
+			nodeid, direntplus->dirent.name,
+			direntplus->entry_out.nodeid);
+
+			dirents[*num_dirents] = direntplus->dirent;
+			(*num_dirents)++;
+
+			if (strcmp(direntplus->dirent.name, ".") &&
+			    strcmp(direntplus->dirent.name, "..")) {
+			/* TODOFS: increment nlookup if not "." or ".."
+			   for this I'll prolly need to store a hashmap in
+			   the uk_fuse_dev, which maps nodeids to nlookup
+			   numbers of each file/directory */
+			}
+
+			offset = direntplus->dirent.off;
+			remains -= FUSE_DIRENTPLUS_SIZE(direntplus);
+			direntplus = (struct fuse_direntplus *)
+				     ((char *) direntplus +
+				     FUSE_DIRENTPLUS_SIZE(direntplus));
+		}
+	}
+
+
+
+free:
+	uk_free(dev->a, read_out);
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+}
+
+/**
+ * @brief
+ *
+ * @param dev
+ * @param parent_nodeid
+ * @param dir_name
+ * @param mode type specification bits (e.g. S_IFDIR) may not be set (is set inside virtiofsd)
+ * @param[out] nodeid
+ * @param[out] nlookup
+ * @return int
+ */
+int uk_fuse_mkdir_request(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
+			  const char *dir_name, uint32_t mode,
+			  uint64_t *nodeid, uint64_t *nlookup)
+{
+	int rc = 0;
+	FUSE_MKDIR_IN mkdir_in = {0};
+	FUSE_MKDIR_OUT mkdir_out = {0};
+	struct uk_fuse_req *req;
+
+	FUSE_HEADER_INIT(&mkdir_in.hdr, FUSE_MKDIR, parent_nodeid,
+		sizeof(struct fuse_mkdir_in) + strlen(dir_name) + 1);
+
+	if (strlen(dir_name) > NAME_MAX) {
+		uk_pr_err("Directory name is larger than %d characters\n",
+			NAME_MAX);
+		return -1;
+	}
+
+	mkdir_in.hdr.uid = dev->owner_uid;
+	mkdir_in.hdr.gid = dev->owner_gid;
+
+	strcpy(mkdir_in.name, dir_name);
+	mkdir_in.mkdir.mode = mode | 0111; /* ---x--x--x */
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &mkdir_in;
+	req->in_buffer_size = mkdir_in.hdr.len;
+	req->out_buffer = &mkdir_out;
+	req->out_buffer_size = sizeof(mkdir_out); // we don't expect a reply;
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	*nodeid = mkdir_out.entry.nodeid;
+	*nlookup = 1; // newly created directory has nlookup = 1
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+}
 
 int uk_fuse_forget_request(struct uk_fuse_dev *dev, uint64_t nodeid,
 			   uint64_t nlookup)
 {
 	int rc = 0;
 	FUSE_FORGET_IN forget_in = {0};
-	FUSE_FORGET_OUT forget_out = {0};
 	struct uk_fuse_req *req;
 
 	FUSE_HEADER_INIT(&forget_in.hdr, FUSE_FORGET,
@@ -100,15 +271,15 @@ free:
 }
 
 /**
- * @brief
+ * @brief delete a file
  *
  * @param dev
  * @param filename
- * @param nlookup TODOFS: this number has to be tracked somewhere
+ * @param nlookup
  * @return int
  */
-int uk_fuse_delete_request(struct uk_fuse_dev *dev, const char *filename,
-			   uint64_t nodeid, uint64_t nlookup, bool is_dir,
+int uk_fuse_unlink_request(struct uk_fuse_dev *dev, const char *filename,
+			   bool is_dir, uint64_t nodeid, uint64_t nlookup,
 			   uint64_t parent_nodeid)
 {
 	int rc = 0;
@@ -308,7 +479,7 @@ int uk_fuse_write_request(struct uk_fuse_dev *dev, uint64_t fh, uint64_t nodeid,
 	} while (length > 0);
 
 free:
-	free(write_in);
+	uk_free(dev->a, write_in);
 req_remove:
 	uk_fusedev_req_remove(dev, req);
 	return rc;
@@ -329,8 +500,8 @@ req_remove:
  * @param dev
  * @return int
  */
-int uk_fuse_release_request(struct uk_fuse_dev *dev, bool is_dir, uint64_t fh,
-			    uint64_t nodeid)
+int uk_fuse_release_request(struct uk_fuse_dev *dev, bool is_dir,
+			    uint64_t nodeid, uint64_t fh)
 {
 	int rc = 0;
 	FUSE_RELEASE_IN release_in = {0};
@@ -491,7 +662,9 @@ free:
 /* TODOFS: add uk_fuse_dev fid? */
 /* TODOFS: how to set flags and mode? Probably comes from the VFS */
 /**
- * @brief
+ * @brief creates a file.
+ *
+ * See uk_fuse_mkdir_request for creating a directory.
  *
  * Fails if a file with the given pathname already exists (because of O_EXCL).
  *
@@ -502,17 +675,26 @@ free:
  * @param mode as in open(2) file type (mask: 0170000) + set-user-ID,
  * set-group-ID, sticky bit (mask: 0007000) + permissions (mask: 000777)
  * https://man7.org/linux/man-pages/man7/inode.7.html
- * @param[out] ffc
+ * @param[out] nodeid
+ * @param[out] fh
+ * @param[out] nlookup
  * @return int
  */
-int uk_fuse_create_file_request(struct uk_fuse_dev *dev, uint64_t parent,
-			const char *file_name, uint32_t flags,
-			uint32_t mode, fuse_file_context *ffc)
+int uk_fuse_create_request(struct uk_fuse_dev *dev, uint64_t parent,
+			   const char *file_name, uint32_t flags,
+			   uint32_t mode, uint64_t *nodeid, uint64_t *fh,
+			   uint64_t *nlookup)
 {
 	int rc = 0;
 	FUSE_CREATE_IN create_in = {0};
 	FUSE_CREATE_OUT create_out = {0};
 	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+	UK_ASSERT(file_name);
+	UK_ASSERT(nodeid);
+	UK_ASSERT(fh);
+	UK_ASSERT(nlookup);
 
 	if (strlen(file_name) > NAME_MAX) {
 		uk_pr_err("provided filename is too long: %zu characters. Max "
@@ -552,8 +734,9 @@ int uk_fuse_create_file_request(struct uk_fuse_dev *dev, uint64_t parent,
 	if ((rc = send_and_wait(dev, req)))
 		goto free;
 
-	ffc->nodeid = create_out.entry.nodeid;
-	ffc->fh     = create_out.open.fh;
+	*nodeid = create_out.entry.nodeid;
+	*fh     = create_out.open.fh;
+	*nlookup = 1; // newly created file has nloookup = 1
 
 	uk_fusedev_req_remove(dev, req);
 	return 0;
@@ -576,7 +759,7 @@ free:
  * @return int
  */
 int uk_fuse_open_request(struct uk_fuse_dev *dev, bool is_dir,
-			 uint64_t nodeid, uint32_t flags, uint64_t *fh)
+			 uint64_t nodeid, uint64_t *fh, uint32_t flags)
 {
 	int rc = 0;
 	FUSE_OPEN_IN open_in = {0};
@@ -644,6 +827,7 @@ int uk_fuse_lookup_request(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 		" size=%" __PRIu64 "}\n",
 		lookup_out->entry.nodeid, attr->ino, attr->size);
 
+	// TODOFS: increment nlookup
 
 	uk_fusedev_req_remove(dev, req);
 	return 0;
@@ -758,13 +942,26 @@ int test_method() {
 	struct fuse_attr attr = {0};
 	// FUSE_LOOKUP_OUT lookup_out = {0};
 	// uint64_t fh;
-	fuse_file_context ffc = {0};
+	fuse_file_context fc = {
+		.is_dir = false,
+		.file_name = "sometext.txt",
+		.mode = S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
+		.flags = O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK | O_LARGEFILE,
+		.parent_nodeid = 1
+	};
+	fuse_file_context dc = {.is_dir = true};
 	const char *send_message = "Hello, host\n";
 	uint32_t bytes_transferred;
 	char *recv_message;
 	size_t recv_size;
+/* uk_fuse_readdirplus_request */
+	fuse_file_context rootdir = {0};
+	struct fuse_dirent dirents[10];
+	size_t num_dirents;
 
-	recv_size = sizeof(char) * (strlen(send_message) + 1);
+
+
+	recv_size = sizeof(char) * (strlen(send_message) + 1 - 3);
 	recv_message = malloc(recv_size);
 	if (recv_message == NULL) {
 		uk_pr_err("Could not allocate a read buffer.\n");
@@ -795,17 +992,10 @@ int test_method() {
 	// dev->owner_gid = lookup_out.entry.attr.gid;
 
 
-
-	// if ((rc = uk_fuse_create_file_request(dev, 1, "lioncat",
-	// 		0x88c1, 0100777, &ffc))) {
-	// 	uk_pr_err("uk_fuse_lookup has failed \n");
-	// 	goto free;
-	// }
-	if ((rc = uk_fuse_create_file_request(dev, 1,
-			"sometext.txt", O_RDWR | O_CREAT |
-			O_EXCL | O_NONBLOCK | O_LARGEFILE,
-			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
-			&ffc))) {
+	if ((rc = uk_fuse_create_request(dev, fc.parent_nodeid,
+			fc.file_name, fc.flags, fc.mode,
+			&fc.nodeid, &fc.fh,
+			&fc.nlookup))) {
 		uk_pr_err("uk_fuse_create_file_request has failed \n");
 		goto free;
 	}
@@ -828,21 +1018,21 @@ int test_method() {
 	// 	goto free;
 	// }
 
-	if ((rc = uk_fuse_write_request(dev, ffc.fh, ffc.nodeid, send_message,
+	if ((rc = uk_fuse_write_request(dev, fc.fh, fc.nodeid, send_message,
 		(uint32_t) strlen(send_message)+1, 0,
 		&bytes_transferred))) {
 		uk_pr_err("uk_fuse_write_request has failed \n");
 		goto free;
 	}
 
-	if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
+	if ((rc = uk_fuse_flush_request(dev, fc.nodeid, fc.fh))) {
 		uk_pr_err("uk_fuse_flush_request has failed \n");
 		goto free;
 	}
 
 	bytes_transferred = 0;
 
-	if ((rc = uk_fuse_read_request(dev, ffc.fh, ffc.nodeid, 0,
+	if ((rc = uk_fuse_read_request(dev, fc.fh, fc.nodeid, 3,
 			       recv_size, recv_message,
 			       &bytes_transferred))) {
 		uk_pr_err("uk_fuse_read_request has failed \n");
@@ -851,9 +1041,65 @@ int test_method() {
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
 		    recv_message);
 
-	if ((rc = uk_fuse_delete_request(dev, "sometext.txt", 2, 1, false,
+	if ((rc = uk_fuse_unlink_request(dev, "sometext.txt", false, 2, 1,
 		1))) {
 		uk_pr_err("uk_fuse_delete_request has failed \n");
+		goto free;
+	}
+
+	if ((rc = uk_fuse_mkdir_request(dev, 1,
+		"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free;
+	}
+
+	memset(&fc.file_name, 0,
+		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	strcpy(fc.file_name, "document1.txt");
+	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+		fc.file_name, fc.flags, fc.mode,
+		&fc.nodeid, &fc.fh,
+		&fc.nlookup))) {
+		uk_pr_err("uk_fuse_create_file_request has failed \n");
+		goto free;
+	}
+	memset(&fc.file_name, 0,
+		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	strcpy(fc.file_name, "document2.txt");
+	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+		fc.file_name, fc.flags, fc.mode,
+		&fc.nodeid, &fc.fh,
+		&fc.nlookup))) {
+		uk_pr_err("uk_fuse_create_file_request has failed \n");
+		goto free;
+	}
+	memset(&fc.file_name, 0,
+		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	strcpy(fc.file_name, "document3.txt");
+	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+		fc.file_name, fc.flags, fc.mode,
+		&fc.nodeid, &fc.fh,
+		&fc.nlookup))) {
+		uk_pr_err("uk_fuse_create_file_request has failed \n");
+		goto free;
+	}
+
+
+
+	if ((rc = uk_fuse_open_request(dev, true, 2, &rootdir.fh, 0))) {
+		uk_pr_err("uk_fuse_open_request has failed \n");
+		goto free;
+	}
+
+	if ((rc = uk_fuse_readdirplus_request(dev, 500, 2, rootdir.fh,
+		dirents, &num_dirents))) {
+		uk_pr_err("uk_fuse_readdirplus_request has failed \n");
+		goto free;
+	}
+
+	if ((rc = uk_fuse_release_request(dev, true, 2, rootdir.fh))) {
+		uk_pr_err("uk_fuse_release_request has failed\n");
+		goto free;
 	}
 
 	// if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
@@ -880,5 +1126,4 @@ free:
 	free(recv_message);
 	return rc;
 }
-
 

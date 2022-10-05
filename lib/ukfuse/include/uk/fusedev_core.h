@@ -106,15 +106,15 @@ struct uk_fuse_dev {
 	/* Transport state. */
 	enum uk_fuse_dev_trans_state		state;
 	/* Number of pages that can be used per request */
-	uint32_t max_pages;
+	uint32_t				max_pages;
 	/* Maximum number of bytes in a single write operation */
-	uint32_t max_write;
+	uint32_t				max_write;
 
-	// Uid/Gid used to describe files' owner on the host side.
-	uint32_t owner_uid;
-	uint32_t owner_gid;
+	/* Uid/Gid used to describe files' owner on the host side. */
+	uint32_t				owner_uid;
+	uint32_t				owner_gid;
 	/* @internal Request management. */
-	struct uk_fusedev_req_mgmt _req_mgmt;
+	struct uk_fusedev_req_mgmt		_req_mgmt;
 #if CONFIG_LIBUKSCHED
 	/*
 	 * Slept on by threads waiting for their turn for enough space to send
