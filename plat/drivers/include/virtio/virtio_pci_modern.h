@@ -134,6 +134,14 @@ struct virtio_pci_cap {
 #define VIRTIO_PCI_STRUCT_LEN_SHIFT		0
 #define VIRTIO_PCI_STRUCT_LEN_MASK		0xFFFFFFFF
 
+#define VIRTIO_PCI_CAP_OFF_HI(capreg)		(capreg+16)
+#define VIRTIO_PCI_CAP_OFF_HI_SHIFT		0
+#define VIRTIO_PCI_CAP_OFF_HI_MASK		0xFFFFFFFF
+
+#define VIRTIO_PCI_CAP_LEN_HI(capreg)		(capreg+20)
+#define VIRTIO_PCI_CAP_LEN_HI_SHIFT		0
+#define VIRTIO_PCI_CAP_LEN_HI_MASK		0xFFFFFFFF
+
 
 
 

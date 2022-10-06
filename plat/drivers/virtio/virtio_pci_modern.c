@@ -93,10 +93,10 @@ struct vpci_modern_resource_map {
 	/* Address of a device configuration space, to which this resource
 	 * belongs */
 	uint32_t vrm_config_addr;
-	/* offset to the corresponding capability within the device
-	 * configuration space */
+	/* Offset to the corresponding capability within the device
+	   configuration space */
 	int vrm_cap_offset;
-	/* BAR #, where the structure lies. Can be between 0x0 and 0x5 */
+	/* BAR #, in which the structure lies. Can be between 0x0 and 0x5 */
 	uint8_t vrm_bar;
 	/* Offset to the struct within the BAR */
 	uint32_t vrm_struct_offset;
@@ -105,6 +105,30 @@ struct vpci_modern_resource_map {
 	/* Type of BAR. SYS_RES_{MEMORY, IOPORT} */
 	int vrm_type;
 };
+
+/**
+ * @brief same as above, but vrm_struct_offset and vrm_struct_len are uint64_t
+ * instead of uint32_t. It is used to map the virtio_pci_cap64 (see virtio
+ * spec).
+ *
+ */
+struct vpci_modern_resource_map64 {
+	/* Address of a device configuration space, to which this resource
+	 * belongs */
+	uint32_t vrm_config_addr;
+	/* Offset to the corresponding capability within the device
+	   configuration space */
+	int vrm_cap_offset;
+	/* BAR #, in which the structure lies. Can be between 0x0 and 0x5 */
+	uint8_t vrm_bar;
+	/* Offset to the struct within the BAR */
+	uint64_t vrm_struct_offset;
+	/* Length of the struct within the BAR */
+	uint64_t vrm_struct_len;
+	/* Type of BAR. SYS_RES_{MEMORY, IOPORT} */
+	int vrm_type;
+};
+
 /**
  * TODOFS: think how to change this.
  *
@@ -122,6 +146,7 @@ struct virtio_pci_modern_dev {
 	struct vpci_modern_resource_map vpci_notify_res_map;
 	struct vpci_modern_resource_map vpci_isr_res_map;
 	struct vpci_modern_resource_map vpci_device_res_map;
+	struct vpci_modern_resource_map64 vpci_shared_mem_res_map;
 
 	// TODOFS: remove this.
 	unsigned long pci_base_addr;
@@ -1013,8 +1038,9 @@ static void vpci_modern_pci_dev_reset(struct virtio_dev *vdev)
  *
  * @param pdev
  * @param cfg_type
- * @param [out] cap_offset
- * @return int
+ * @param [out] cap_offset on success, offset inside the device configuration
+ * space, where the found capability begins
+ * @return int 0, if successfully found
  */
 static int virtio_pci_modern_find_cap(struct pci_device *pdev,
 				      __u8 target_cfg_type, int *cap_offset)
@@ -1118,6 +1144,8 @@ vpci_modern_bar_type(struct virtio_pci_modern_dev *vpdev, int bar)
  * @brief Initializes a resource map @p res, that specifies, how a configuration
  * struct, associated with the @p cfg_type capability, can be accessed.
  *
+ * It gets the data from a virtio pci capability with type @p cfg_type and
+ * copies it over into the resource map @p res.
  * The resource map contains information about how the virtio configuration
  * structure, associated with a capability of type @p cfg_type, can be located.
  * It includes a BAR, through which it is located, a BAR type (memory space or
@@ -1128,7 +1156,7 @@ vpci_modern_bar_type(struct virtio_pci_modern_dev *vpdev, int bar)
  * @param cfg_type
  * @param min_size
  * @param alignment
- * @param res
+ * @param[out] res
  * @return int
  */
 static int
@@ -1137,7 +1165,9 @@ vpci_modern_find_cap_resource(struct virtio_pci_modern_dev *vpdev,
 			      struct vpci_modern_resource_map *res)
 {
 	struct pci_device *pdev;
-	int rc = 0, cap_offset;
+	int rc = 0;
+	int cap_offset; /* offset inside the device config space, where the
+			   capability begins */
 	uint8_t bar, cap_length;
 	uint32_t struct_offset, struct_len;
 
@@ -1147,8 +1177,10 @@ vpci_modern_find_cap_resource(struct virtio_pci_modern_dev *vpdev,
 	pdev = vpdev->pdev;
 
 	rc = virtio_pci_modern_find_cap(pdev, cfg_type, &cap_offset);
-	if (rc)
+	if (rc) {
+		rc = -ENOATTR;
 		goto exit;
+	}
 
 	PCI_CONF_READ_OFFSET(uint8_t, &cap_length, pdev->config_addr,
 		VIRTIO_PCI_CAP_LEN_OFFSET(cap_offset),
@@ -1240,12 +1272,65 @@ vpci_modern_map_common_config(struct virtio_pci_modern_dev *vpdev)
 	UK_ASSERT(vpdev);
 
 	rc = vpci_modern_find_cap_resource(vpdev, VIRTIO_PCI_CAP_COMMON_CFG,
-	 sizeof(struct virtio_pci_common_cfg), 4, &vpdev->vpci_common_res_map);
+		sizeof(struct virtio_pci_common_cfg), 4,
+		&vpdev->vpci_common_res_map);
 	if (rc) {
 		uk_pr_err("Device %" __PRIu16 " cannot find cap COMMON_CFG \
 		resource\n", vpdev->vdev.id.virtio_device_id);
 		goto exit;
 	}
+
+exit:
+	return rc;
+}
+
+static int
+vpci_modern_map_shared_memory(struct virtio_pci_modern_dev *vpdev)
+{
+	int rc = 0;
+	struct vpci_modern_resource_map res;
+	uint64_t offset_hi, length_hi;
+
+	UK_ASSERT(vpdev);
+
+	rc = vpci_modern_find_cap_resource(vpdev,
+		VIRTIO_PCI_CAP_SHARED_MEMORY_CFG, -1,
+		1, &res);
+	if (rc == -ENOATTR) {
+		/* TODOFS: change to info. (pr_err to make terminal text red) */
+		rc = 0;
+		uk_pr_err("Device %" __PRIu16 " does not have a shared memory"
+		" capability \n", vpdev->vdev.id.virtio_device_id);
+		/* Shared memory regions are optional, therefore the
+		   capabilities can be not present */
+		goto exit;
+	}
+	if (rc) {
+		uk_pr_err("Error while looking for a shared memory"
+			  "capability\n");
+		goto exit;
+	}
+
+	PCI_CONF_READ_OFFSET(uint32_t, &offset_hi, vpdev->pdev->config_addr,
+		VIRTIO_PCI_CAP_OFF_HI(res.vrm_cap_offset),
+		VIRTIO_PCI_CAP_OFF_HI_SHIFT,
+		VIRTIO_PCI_CAP_OFF_HI_MASK);
+
+	PCI_CONF_READ_OFFSET(uint32_t, &length_hi, vpdev->pdev->config_addr,
+		VIRTIO_PCI_CAP_LEN_HI(res.vrm_cap_offset),
+		VIRTIO_PCI_CAP_LEN_HI_SHIFT,
+		VIRTIO_PCI_CAP_LEN_HI_MASK);
+
+	vpdev->vpci_shared_mem_res_map.vrm_config_addr = res.vrm_config_addr;
+	vpdev->vpci_shared_mem_res_map.vrm_cap_offset = res.vrm_cap_offset;
+	vpdev->vpci_shared_mem_res_map.vrm_bar = res.vrm_bar;
+	vpdev->vpci_shared_mem_res_map.vrm_struct_len = res.vrm_struct_len;
+	vpdev->vpci_shared_mem_res_map.vrm_type = res.vrm_type;
+	vpdev->vpci_shared_mem_res_map.vrm_struct_offset =
+		res.vrm_struct_offset;
+
+	vpdev->vpci_shared_mem_res_map.vrm_struct_offset |= (offset_hi << 32);
+	vpdev->vpci_shared_mem_res_map.vrm_struct_len |= (length_hi << 32);
 
 exit:
 	return rc;
@@ -1355,6 +1440,8 @@ static int vpci_modern_map_configs(struct virtio_pci_modern_dev *vpdev)
 	rc = vpci_modern_map_device_config(vpdev);
 	if (unlikely(rc))
 		goto exit;
+
+	rc = vpci_modern_map_shared_memory(vpdev);
 
 exit:
 	return rc;
