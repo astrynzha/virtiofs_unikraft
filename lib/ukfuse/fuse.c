@@ -1,5 +1,5 @@
 #include "uk/fuse.h"
-#include "fcntl.h"
+#include <fcntl.h>
 #include "uk/essentials.h"
 #include "uk/alloc.h"
 #include "uk/assert.h"
@@ -67,16 +67,58 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
-int uk_fuse_lseek_request(struct uk_fuse_dev *dev, uint64_t fh, uint64_t offset,
-			  uint32_t whence)
+/**
+ * @brief
+ *
+ * As far as I understand it, this is used for hole detection and not for
+ * repositioning the file offset within an open file descriptor.
+ * (Reading/writing from an offset is done by indicating @p file_off in
+ * uk_fuse_read_request()/uk_fuse_write_request().
+ *
+ * @param dev
+ * @param nodeid
+ * @param fh
+ * @param offset
+ * @param whence
+ * @param[out] total_offset upon successful completion the resulting offset
+ * location as measured in bytes from the beginning of the file is returned
+ * @return int
+ */
+int uk_fuse_lseek_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+			  uint64_t offset, uint32_t whence,
+			  off_t *offset_out)
 {
 	int rc = 0;
 	FUSE_LSEEK_IN lseek_in = {0};
-	FUSE_UNLINK_OUT lseek_out = {0};
+	FUSE_LSEEK_OUT lseek_out = {0};
 	struct uk_fuse_req *req;
 
 	UK_ASSERT(dev);
 
+	FUSE_HEADER_INIT(&lseek_in.hdr, FUSE_LSEEK, nodeid,
+			 sizeof(lseek_in.lseek));
+
+	lseek_in.lseek.fh = fh;
+	lseek_in.lseek.offset = offset;
+	lseek_in.lseek.whence = whence;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &lseek_in;
+	req->in_buffer_size = sizeof(lseek_in);
+	req->out_buffer = &lseek_out;
+	req->out_buffer_size = sizeof(lseek_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto exit;
+
+	*offset_out = lseek_out.lseek.offset;
+
+exit:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
 }
 
 /**
@@ -294,14 +336,14 @@ int uk_fuse_unlink_request(struct uk_fuse_dev *dev, const char *filename,
 		return -1;
 	}
 
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
 	FUSE_HEADER_INIT(&unlink_in.hdr, is_dir ? FUSE_RMDIR : FUSE_UNLINK,
 	parent_nodeid, strlen(filename) + 1);
 
 	strcpy(unlink_in.name, filename);
-
-	req = uk_fusedev_req_create(dev);
-	if (PTRISERR(req))
-		return PTR2ERR(req);
 
 	req->in_buffer = &unlink_in;
 	req->in_buffer_size = unlink_in.hdr.len;
@@ -330,9 +372,9 @@ free:
  * @param[out] bytes_transferred how many bytes have been read
  * @return int
  */
-int uk_fuse_read_request(struct uk_fuse_dev *dev, uint64_t fh, uint64_t nodeid,
+int uk_fuse_read_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			 uint64_t file_off, uint32_t length,
-			void *out_buf, uint32_t *bytes_transferred)
+			 void *out_buf, uint32_t *bytes_transferred)
 {
 	int rc = 0;
 	uint32_t max_req_buf_size; /* buffer for one request */
@@ -429,7 +471,7 @@ req_remove:
  * by this function call
  * @return int
  */
-int uk_fuse_write_request(struct uk_fuse_dev *dev, uint64_t fh, uint64_t nodeid,
+int uk_fuse_write_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			  const void *in_buf, uint32_t length, uint64_t off,
 			  uint32_t *bytes_transferred)
 {
@@ -507,6 +549,8 @@ int uk_fuse_release_request(struct uk_fuse_dev *dev, bool is_dir,
 	FUSE_RELEASE_IN release_in = {0};
 	FUSE_RELEASE_OUT release_out = {0};
 	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
 
 	uk_pr_debug("Release request issued: fh %" __PRIu64 ", nodeid %" __PRIu64
 		    "\n", fh, nodeid);
@@ -629,14 +673,13 @@ int uk_fuse_flush_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh)
 	FUSE_FLUSH_OUT flush_out = {0};
 	struct uk_fuse_req *req;
 
-	uk_pr_debug("Flush request issued: fh %" __PRIu64 ", nodeid %" __PRIu64
-		    "\n", fh, nodeid);
+
+	UK_ASSERT(dev);
 
 	FUSE_HEADER_INIT(&flush_in.hdr, FUSE_FLUSH, nodeid,
 		sizeof(flush_in.flush));
 
 	flush_in.flush.fh = fh;
-
 
 	req = uk_fusedev_req_create(dev);
 	if (PTRISERR(req))
@@ -952,18 +995,28 @@ int test_method() {
 	fuse_file_context dc = {.is_dir = true};
 	const char *send_message = "Hello, host\n";
 	uint32_t bytes_transferred;
-	char *recv_message;
-	size_t recv_size;
+	char *read_message;
+	size_t read_size;
 /* uk_fuse_readdirplus_request */
 	fuse_file_context rootdir = {0};
 	struct fuse_dirent dirents[10];
 	size_t num_dirents;
+/* uk_fuse_lseek_request */
+	char *read_message_lseek;
+	size_t read_size_lseek;
+	off_t lseek_off;
 
 
+	read_size = sizeof(char) * (strlen(send_message) + 1 - 3);
+	read_message = malloc(read_size);
+	if (!read_message) {
+		uk_pr_err("Could not allocate a read buffer.\n");
+		return -1;
+	}
 
-	recv_size = sizeof(char) * (strlen(send_message) + 1 - 3);
-	recv_message = malloc(recv_size);
-	if (recv_message == NULL) {
+	read_size_lseek = sizeof(char) * (strlen(send_message) + 1 - 3);
+	read_message_lseek = malloc(read_size_lseek);
+	if (!read_message_lseek) {
 		uk_pr_err("Could not allocate a read buffer.\n");
 		return -1;
 	}
@@ -1011,16 +1064,16 @@ int test_method() {
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_read_request(dev, ffc.fh, ffc.nodeid, 0,
+	// if ((rc = uk_fuse_read_request(dev, ffc.nodeid, ffc.fh, 0,
 	// 		       recv_size, recv_message,
 	// 		       &bytes_transferred))) {
 	// 	uk_pr_err("uk_fuse_read_request has failed \n");
 	// 	goto free;
 	// }
 
-	if ((rc = uk_fuse_write_request(dev, fc.fh, fc.nodeid, send_message,
-		(uint32_t) strlen(send_message)+1, 0,
-		&bytes_transferred))) {
+	if ((rc = uk_fuse_write_request(dev, fc.nodeid, fc.fh,
+		send_message, (uint32_t) strlen(send_message)+1,
+		0, &bytes_transferred))) {
 		uk_pr_err("uk_fuse_write_request has failed \n");
 		goto free;
 	}
@@ -1032,14 +1085,30 @@ int test_method() {
 
 	bytes_transferred = 0;
 
-	if ((rc = uk_fuse_read_request(dev, fc.fh, fc.nodeid, 3,
-			       recv_size, recv_message,
+	if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 3,
+			       read_size, read_message,
 			       &bytes_transferred))) {
 		uk_pr_err("uk_fuse_read_request has failed \n");
 		goto free;
 	}
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
-		    recv_message);
+		    read_message);
+
+	if ((rc = uk_fuse_lseek_request(dev, fc.nodeid, fc.fh,
+			3, SEEK_SET, &lseek_off))) {
+		uk_pr_err("uk_fuse_read_request has failed \n");
+		goto free;
+	}
+
+	bytes_transferred = 0;
+	if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 0,
+			       read_size_lseek, read_message_lseek,
+			       &bytes_transferred))) {
+		uk_pr_err("uk_fuse_read_request has failed \n");
+		goto free;
+	}
+	uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
+		    bytes_transferred, read_message_lseek);
 
 	if ((rc = uk_fuse_unlink_request(dev, "sometext.txt", false, 2, 1,
 		1))) {
@@ -1047,60 +1116,60 @@ int test_method() {
 		goto free;
 	}
 
-	if ((rc = uk_fuse_mkdir_request(dev, 1,
-		"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_mkdir_request(dev, 1,
+	// 	"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
+	// 	uk_pr_err("uk_fuse_mkdir_request has failed \n");
+	// 	goto free;
+	// }
 
-	memset(&fc.file_name, 0,
-		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
-	strcpy(fc.file_name, "document1.txt");
-	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
-		fc.file_name, fc.flags, fc.mode,
-		&fc.nodeid, &fc.fh,
-		&fc.nlookup))) {
-		uk_pr_err("uk_fuse_create_file_request has failed \n");
-		goto free;
-	}
-	memset(&fc.file_name, 0,
-		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
-	strcpy(fc.file_name, "document2.txt");
-	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
-		fc.file_name, fc.flags, fc.mode,
-		&fc.nodeid, &fc.fh,
-		&fc.nlookup))) {
-		uk_pr_err("uk_fuse_create_file_request has failed \n");
-		goto free;
-	}
-	memset(&fc.file_name, 0,
-		sizeof(fc.file_name)/sizeof(fc.file_name[0]));
-	strcpy(fc.file_name, "document3.txt");
-	if ((rc = uk_fuse_create_request(dev, dc.nodeid,
-		fc.file_name, fc.flags, fc.mode,
-		&fc.nodeid, &fc.fh,
-		&fc.nlookup))) {
-		uk_pr_err("uk_fuse_create_file_request has failed \n");
-		goto free;
-	}
+	// memset(&fc.file_name, 0,
+	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	// strcpy(fc.file_name, "document1.txt");
+	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// 	fc.file_name, fc.flags, fc.mode,
+	// 	&fc.nodeid, &fc.fh,
+	// 	&fc.nlookup))) {
+	// 	uk_pr_err("uk_fuse_create_file_request has failed \n");
+	// 	goto free;
+	// }
+	// memset(&fc.file_name, 0,
+	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	// strcpy(fc.file_name, "document2.txt");
+	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// 	fc.file_name, fc.flags, fc.mode,
+	// 	&fc.nodeid, &fc.fh,
+	// 	&fc.nlookup))) {
+	// 	uk_pr_err("uk_fuse_create_file_request has failed \n");
+	// 	goto free;
+	// }
+	// memset(&fc.file_name, 0,
+	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
+	// strcpy(fc.file_name, "document3.txt");
+	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// 	fc.file_name, fc.flags, fc.mode,
+	// 	&fc.nodeid, &fc.fh,
+	// 	&fc.nlookup))) {
+	// 	uk_pr_err("uk_fuse_create_file_request has failed \n");
+	// 	goto free;
+	// }
 
 
 
-	if ((rc = uk_fuse_open_request(dev, true, 2, &rootdir.fh, 0))) {
-		uk_pr_err("uk_fuse_open_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_open_request(dev, true, 2, &rootdir.fh, 0))) {
+	// 	uk_pr_err("uk_fuse_open_request has failed \n");
+	// 	goto free;
+	// }
 
-	if ((rc = uk_fuse_readdirplus_request(dev, 500, 2, rootdir.fh,
-		dirents, &num_dirents))) {
-		uk_pr_err("uk_fuse_readdirplus_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_readdirplus_request(dev, 500, 2, rootdir.fh,
+	// 	dirents, &num_dirents))) {
+	// 	uk_pr_err("uk_fuse_readdirplus_request has failed \n");
+	// 	goto free;
+	// }
 
-	if ((rc = uk_fuse_release_request(dev, true, 2, rootdir.fh))) {
-		uk_pr_err("uk_fuse_release_request has failed\n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_release_request(dev, true, 2, rootdir.fh))) {
+	// 	uk_pr_err("uk_fuse_release_request has failed\n");
+	// 	goto free;
+	// }
 
 	// if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
 	// 	uk_pr_err("uk_fuse_flush_request has failed \n");
@@ -1123,7 +1192,8 @@ int test_method() {
 
 
 free:
-	free(recv_message);
+	free(read_message);
+	free(read_message_lseek);
 	return rc;
 }
 
