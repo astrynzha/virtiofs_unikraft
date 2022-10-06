@@ -151,6 +151,8 @@ int uk_fuse_readdirplus_request(struct uk_fuse_dev *dev, uint64_t buff_len,
 	*num_dirents = 0;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(dirents);
+	UK_ASSERT(num_dirents);
 
 	req = uk_fusedev_req_create(dev);
 	if (PTRISERR(req))
@@ -247,6 +249,11 @@ int uk_fuse_mkdir_request(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
 	FUSE_MKDIR_OUT mkdir_out = {0};
 	struct uk_fuse_req *req;
 
+	UK_ASSERT(dev);
+	UK_ASSERT(dir_name);
+	UK_ASSERT(nodeid);
+	UK_ASSERT(nlookup);
+
 	FUSE_HEADER_INIT(&mkdir_in.hdr, FUSE_MKDIR, parent_nodeid,
 		sizeof(struct fuse_mkdir_in) + strlen(dir_name) + 1);
 
@@ -289,6 +296,8 @@ int uk_fuse_forget_request(struct uk_fuse_dev *dev, uint64_t nodeid,
 	FUSE_FORGET_IN forget_in = {0};
 	struct uk_fuse_req *req;
 
+	UK_ASSERT(dev);
+
 	FUSE_HEADER_INIT(&forget_in.hdr, FUSE_FORGET,
 		nodeid, sizeof(forget_in.forget));
 
@@ -330,6 +339,7 @@ int uk_fuse_unlink_request(struct uk_fuse_dev *dev, const char *filename,
 	struct uk_fuse_req *req;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(filename);
 
 	if (strlen(filename) > NAME_MAX) {
 		uk_pr_err("Filename is larger than %d characters\n", NAME_MAX);
@@ -383,6 +393,8 @@ int uk_fuse_read_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 	struct uk_fuse_req *req;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(out_buf);
+	UK_ASSERT(bytes_transferred);
 
 	if (out_buf == NULL) {
 		uk_pr_err("%s: Provided buffer is invalid", __func__);
@@ -483,6 +495,8 @@ int uk_fuse_write_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 	*bytes_transferred = 0;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(in_buf);
+	UK_ASSERT(bytes_transferred);
 
 	req = uk_fusedev_req_create(dev);
 	if (PTRISERR(req))
@@ -809,6 +823,9 @@ int uk_fuse_open_request(struct uk_fuse_dev *dev, bool is_dir,
 	FUSE_OPEN_OUT open_out = {0};
 	struct uk_fuse_req *req;
 
+	UK_ASSERT(dev);
+	UK_ASSERT(fh);
+
 	FUSE_HEADER_INIT(&open_in.hdr, is_dir ? FUSE_OPENDIR : FUSE_OPEN,
 		nodeid, sizeof(open_in.open));
 
@@ -845,6 +862,10 @@ int uk_fuse_lookup_request(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 	FUSE_LOOKUP_IN lookup_in = {0};
 	struct uk_fuse_req *req;
 	struct fuse_attr *attr;
+
+	UK_ASSERT(dev);
+	UK_ASSERT(filename);
+	UK_ASSERT(lookup_out);
 
 	FUSE_HEADER_INIT(&lookup_in.hdr, FUSE_LOOKUP,
 		 dir_nodeid, strlen(filename) + 1);
@@ -907,6 +928,7 @@ int uk_fuse_get_attr_request(struct uk_fuse_dev *dev, uint64_t nodeid,
 	struct uk_fuse_req *req;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(attr);
 
 	FUSE_HEADER_INIT(&getattr_in.hdr, FUSE_GETATTR, nodeid,
 			  sizeof(getattr_in.getattr));
@@ -945,6 +967,8 @@ int uk_fuse_init_reqeust(struct uk_fuse_dev *dev)
 	FUSE_INIT_IN init_in = {0};
 	FUSE_INIT_OUT init_out = {0};
 	int rc = 0;
+
+	UK_ASSERT(dev);
 
 	FUSE_HEADER_INIT(&init_in.hdr, FUSE_INIT, FUSE_ROOT_ID,
 sizeof(init_in.init));
