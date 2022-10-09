@@ -455,7 +455,7 @@ static const struct pci_device_id virtio_pci_ids[] = {
 	{PCI_ANY_DEVICE_ID},
 };
 
-static struct pci_driver virtio_pci_drv = {
+__unused static struct pci_driver virtio_pci_drv = {
 	.device_ids = virtio_pci_ids,
 	.init = virtio_pci_drv_init,
 	.add_dev = virtio_pci_add_dev

@@ -42,8 +42,6 @@
 #include <uk/arch/lcpu.h>
 #include <uk/alloc.h>
 #include <uk/bus.h>
-#include <virtio/virtio_config.h>
-#include <virtio/virtqueue.h>
 #include <uk/ctors.h>
 #include <stdbool.h>
 
@@ -115,10 +113,6 @@ struct virtio_config_ops {
 	/** Find the virtqueue */
 	int (*vqs_find)(struct virtio_dev *vdev, __u16 num_vq, __u16 *vq_size);
 	/** Setup the virtqueue */
-	struct virtqueue *(*vq_setup)(struct virtio_dev *vdev, __u16 num_desc,
-				      __u16 queue_id,
-				      virtqueue_callback_t callback,
-				      struct uk_alloc *a);
 	void (*vq_release)(struct virtio_dev *vdev, struct virtqueue *vq,
 				struct uk_alloc *a);
 	void (*vq_enable)(struct virtio_dev *vdev, struct virtqueue *vq);
@@ -367,41 +361,6 @@ static inline void virtio_vqueue_enable(struct virtio_dev *vdev,
 }
 
 /**
- * A helper function to setup an individual virtqueue.
- * @param vdev
- *	Reference to the virtio device.
- * @param vq_id
- *	The virtqueue queue id.
- * @param nr_desc
- *	The count of the descriptor to be configured.
- * @param callback
- *	A reference to callback function to invoked by the virtio device on an
- *	interrupt from the virtqueue.
- * @param a
- *	A reference to the allocator.
- *
- * @return struct virtqueue *
- *	On success, a reference to the virtqueue.
- *	On error,
- *		-ENOTSUP operation not supported on the device.
- *		-ENOMEM  Failed allocating the virtqueue.
- */
-static inline struct virtqueue *virtio_vqueue_setup(struct virtio_dev *vdev,
-					    __u16 vq_id, __u16 nr_desc,
-					    virtqueue_callback_t  callback,
-					    struct uk_alloc *a)
-{
-	struct virtqueue *vq = ERR2PTR(-ENOTSUP);
-
-	UK_ASSERT(vdev && a);
-
-	if (likely(vdev->cops->vq_setup))
-		vq = vdev->cops->vq_setup(vdev, vq_id, nr_desc, callback, a);
-
-	return vq;
-}
-
-/**
  * A helper function to release an individual virtqueue.
  * @param vdev
  *	Reference to the virtio device.
@@ -419,12 +378,6 @@ static inline void virtio_vqueue_release(struct virtio_dev *vdev,
 	if (likely(vdev->cops->vq_release))
 		vdev->cops->vq_release(vdev, vq, a);
 }
-
-static inline void virtio_dev_drv_up(struct virtio_dev *vdev)
-{
-	virtio_dev_status_update(vdev, VIRTIO_CONFIG_STATUS_DRIVER_OK);
-}
-
 #define VIRTIO_BUS_REGISTER_DRIVER(b)	\
 	_VIRTIO_BUS_REGISTER_DRIVER(__LIBNAME__, b)
 

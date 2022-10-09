@@ -67,6 +67,46 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
+int uk_fuse_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+			 uint64_t foffset, uint64_t len, uint64_t flags,
+			 uint64_t moffset)
+{
+	int rc = 0;
+	FUSE_SETUPMAPPING_IN setupmapping_in = {0};
+	FUSE_SETUPMAPPING_OUT setupmapping_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+	FUSE_HEADER_INIT(&setupmapping_in.hdr, FUSE_SETUPMAPPING,
+			 nodeid, sizeof(struct fuse_setupmapping_in));
+
+	setupmapping_in.setupmapping.fh = fh;
+	setupmapping_in.setupmapping.flags = flags;
+	setupmapping_in.setupmapping.foffset = foffset;
+	setupmapping_in.setupmapping.len = len;
+	setupmapping_in.setupmapping.moffset = moffset;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &setupmapping_in;
+	req->in_buffer_size = sizeof(setupmapping_in);
+	req->out_buffer = &setupmapping_out;
+	req->out_buffer_size = sizeof(setupmapping_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fusedev_req_remove(dev, req);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+}
+
 /**
  * @brief
  *
@@ -140,7 +180,8 @@ exit:
 int uk_fuse_readdirplus_request(struct uk_fuse_dev *dev, uint64_t buff_len,
 				uint64_t nodeid, uint64_t fh,
 				struct fuse_dirent *dirents,
-				size_t *num_dirents) {
+				size_t *num_dirents)
+{
 	int rc = 0;
 	FUSE_READ_IN read_in = {0};
 	FUSE_READ_OUT *read_out;
@@ -1048,6 +1089,7 @@ int test_method() {
 	struct uk_fusedev_trans *trans = uk_fusedev_trans_get_default();
 	struct uk_fuse_dev *dev =
 		uk_fusedev_connect(trans, "myfs", NULL);
+
 
 	if ((rc = uk_fuse_init_reqeust(dev))) {
 		uk_pr_err("uk_fuse_init has failed \n");

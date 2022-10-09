@@ -12,8 +12,8 @@ int uk_fusedev_trans_register(struct uk_fusedev_trans *trans)
 	UK_ASSERT(trans);
 	UK_ASSERT(trans->name);
 	UK_ASSERT(trans->ops);
-	// UK_ASSERT(trans->ops->connect);
-	// UK_ASSERT(trans->ops->disconnect);
+	UK_ASSERT(trans->ops->connect);
+	UK_ASSERT(trans->ops->disconnect);
 	UK_ASSERT(trans->ops->request);
 	UK_ASSERT(trans->a);
 

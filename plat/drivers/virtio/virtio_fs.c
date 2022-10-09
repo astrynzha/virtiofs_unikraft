@@ -347,6 +347,11 @@ static const struct uk_fusedev_trans_ops viofs_trans_ops = {
 	.request		= virtio_fs_request
 };
 
+/**
+ * @brief FUSE transport
+ *
+ * Interface and data needed for lib/ukfuse to use this driver as transport
+ */
 static struct uk_fusedev_trans viofs_trans = {
 	.name			= "virtio",
 	.ops			= &viofs_trans_ops,
@@ -400,7 +405,9 @@ static int virtio_fs_feature_negotiate(struct virtio_fs_device *d)
 		rc = -ENOMEM;
 		goto out;
 	}
-	if (0 > virtio_fs_scan_device_config(d)) {
+
+	rc = virtio_fs_scan_device_config(d);
+	if (rc) {
 		rc = -EAGAIN;
 		goto free_mem;
 	}
@@ -546,6 +553,8 @@ void test_method_1() {
 	test_method();
 }
 
+/* TODOFS: remove */
+#include <uk/vf_vnops.h>
 
 static int virtio_fs_add_dev(struct virtio_dev *vdev)
 {
@@ -576,7 +585,10 @@ static int virtio_fs_add_dev(struct virtio_dev *vdev)
 	uk_list_add(&d->_list, &virtio_fs_device_list);
 	ukarch_spin_unlock(&virtio_fs_device_list_lock);
 
+	add_vdev_for_dax(vdev);
+
 	test_method_1();
+	vf_test_method();
 out:
 	return rc;
 out_free:

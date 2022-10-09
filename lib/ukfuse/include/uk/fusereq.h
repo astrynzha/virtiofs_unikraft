@@ -273,6 +273,18 @@ typedef struct
 
 } FUSE_LSEEK_OUT;
 
+typedef struct
+{
+	struct fuse_in_header hdr;
+	struct fuse_setupmapping_in setupmapping;
+
+} FUSE_SETUPMAPPING_IN;
+
+typedef struct
+{
+	struct fuse_out_header hdr;
+} FUSE_SETUPMAPPING_OUT;
+
 
 
 

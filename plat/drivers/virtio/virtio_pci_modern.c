@@ -65,6 +65,7 @@
 #include "uk/assert.h"
 #include "uk/plat/bootstrap.h"
 #include "uk/thread.h"
+#include "uk/vfdev.h"
 #include <stdint.h>
 #include <uk/list.h>
 #include <uk/config.h>
@@ -99,29 +100,6 @@ struct vpci_modern_resource_map {
 	/* BAR #, in which the structure lies. Can be between 0x0 and 0x5 */
 	uint8_t vrm_bar;
 	/* Offset to the struct within the BAR */
-	uint32_t vrm_struct_offset;
-	/* Length of the struct within the BAR */
-	uint32_t vrm_struct_len;
-	/* Type of BAR. SYS_RES_{MEMORY, IOPORT} */
-	int vrm_type;
-};
-
-/**
- * @brief same as above, but vrm_struct_offset and vrm_struct_len are uint64_t
- * instead of uint32_t. It is used to map the virtio_pci_cap64 (see virtio
- * spec).
- *
- */
-struct vpci_modern_resource_map64 {
-	/* Address of a device configuration space, to which this resource
-	 * belongs */
-	uint32_t vrm_config_addr;
-	/* Offset to the corresponding capability within the device
-	   configuration space */
-	int vrm_cap_offset;
-	/* BAR #, in which the structure lies. Can be between 0x0 and 0x5 */
-	uint8_t vrm_bar;
-	/* Offset to the struct within the BAR */
 	uint64_t vrm_struct_offset;
 	/* Length of the struct within the BAR */
 	uint64_t vrm_struct_len;
@@ -146,8 +124,9 @@ struct virtio_pci_modern_dev {
 	struct vpci_modern_resource_map vpci_notify_res_map;
 	struct vpci_modern_resource_map vpci_isr_res_map;
 	struct vpci_modern_resource_map vpci_device_res_map;
-	struct vpci_modern_resource_map64 vpci_shared_mem_res_map;
+	struct vpci_modern_resource_map vpci_shared_mem_res_map;
 
+	bool shared_mem_present;
 	// TODOFS: remove this.
 	unsigned long pci_base_addr;
 	unsigned long pci_isr_addr;
@@ -236,21 +215,33 @@ static void	vpci_modern_write_notify_2(struct virtio_pci_modern_dev *vpdev,
 static int 	virtio_pci_modern_add_dev(struct pci_device *pci_dev);
 
 
+static uint64_t
+vpci_modern_get_shm_addr(struct virtio_dev *vdev, uint8_t shm_id);
+
+static uint64_t
+vpci_modern_get_shm_length(struct virtio_dev *vdev, uint8_t shm_id);
+
+static bool
+vpci_modern_shm_present(struct virtio_dev *vdev, uint8_t shm_id);
+
 /**
  * Configuration operations legacy PCI device.
  */
-static struct virtio_config_ops vpci_legacy_ops = {
-	.device_reset = vpci_modern_pci_dev_reset,
-	.modern_config_get   = vpci_modern_pci_config_get,
-	.modern_config_set   = vpci_modern_pci_config_set,
-	.features_get = vpci_modern_features_get,
-	.features_set = vpci_modern_features_set,
-	.status_get   = vpci_modern_pci_status_get,
-	.status_set   = vpci_modern_pci_status_set,
-	.vqs_find     = vpci_modern_pci_vq_find,
-	.vq_setup     = vpci_modern_vq_setup,
-	.vq_release   = vpci_legacy_vq_release,
-	.vq_enable    = vpci_modern_vq_enable,
+static struct virtio_config_ops vpci_modern_ops = {
+	.device_reset		= vpci_modern_pci_dev_reset,
+	.modern_config_get	= vpci_modern_pci_config_get,
+	.modern_config_set	= vpci_modern_pci_config_set,
+	.features_get		= vpci_modern_features_get,
+	.features_set		= vpci_modern_features_set,
+	.status_get		= vpci_modern_pci_status_get,
+	.status_set		= vpci_modern_pci_status_set,
+	.vqs_find		= vpci_modern_pci_vq_find,
+	.vq_setup		= vpci_modern_vq_setup,
+	.vq_release		= vpci_legacy_vq_release,
+	.vq_enable		= vpci_modern_vq_enable,
+	.get_shm_addr		= vpci_modern_get_shm_addr,
+	.get_shm_length		= vpci_modern_get_shm_length,
+	.shm_present		= vpci_modern_shm_present
 };
 
 static void vpci_modern_vq_enable(struct virtio_dev *vdev, struct virtqueue *vq)
@@ -297,7 +288,12 @@ static void vpci_legacy_vq_release(struct virtio_dev *vdev,
 static uint64_t
 vpci_modern_base_addr_get(struct vpci_modern_resource_map *res_map)
 {
-	uint64_t base_addr = 0, tmp;
+	int mem_type; /* Whether a BAR is 32 or 64 byte wide. Used only with
+			 memory address BARs (not IO space BARs). */
+	uint64_t base_addr = 0;
+	uint64_t base_addr_hi_lo; /* In case of a 64 byte wide BAR, used to
+				     separately fetch the hightest and the
+				     lowest 32 bits of the base_addr. */
 
 	UK_ASSERT(res_map);
 	UK_ASSERT(res_map->vrm_type == SYS_RES_IOPORT ||
@@ -314,29 +310,33 @@ vpci_modern_base_addr_get(struct vpci_modern_resource_map *res_map)
 		// I/O address space is 16 bit addressable?
 		break;
 	case SYS_RES_MEMORY:
-		PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+		PCI_CONF_READ_OFFSET(uint64_t, &mem_type,
+			res_map->vrm_config_addr,
 			PCI_BAR_OFFSET(res_map->vrm_bar),
 			PCI_BAR_MEM_TYPE_SHIFT,
 			PCI_BAR_MEM_TYPE_MASK);
-		if (tmp == 0x0) {
-			// 32bit memory space
-			PCI_CONF_READ_OFFSET(uint64_t, &base_addr, res_map->vrm_config_addr,
+		if (mem_type == 0x0) { /* 32bit memory space */
+			PCI_CONF_READ_OFFSET(uint64_t, &base_addr,
+				res_map->vrm_config_addr,
 				PCI_BAR_OFFSET(res_map->vrm_bar),
 				PCI_BAR_MEM_32_SHIFT,
 				PCI_BAR_MEM_32_MASK);
-		} else if (tmp == 0x2) {
-			// 64bit memory space
-			PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+		} else if (mem_type == 0x2) { /* 64bit memory space */
+			/* Get the lowest 32 bits. */
+			PCI_CONF_READ_OFFSET(uint64_t, &base_addr_hi_lo,
+				res_map->vrm_config_addr,
 				PCI_BAR_OFFSET(res_map->vrm_bar),
 				PCI_BAR_MEM_32_SHIFT,
 				PCI_BAR_MEM_32_MASK);
-			base_addr = tmp;
-			PCI_CONF_READ_OFFSET(uint64_t, &tmp, res_map->vrm_config_addr,
+			base_addr = base_addr_hi_lo;
+			/* Get the highest 32 bits. */
+			PCI_CONF_READ_OFFSET(uint64_t, &base_addr_hi_lo,
+				res_map->vrm_config_addr,
 				PCI_BAR_OFFSET(res_map->vrm_bar + 1),
 				PCI_BAR_MEM_32_SHIFT,
 				PCI_BAR_MEM_64_MASK);
-			tmp = tmp << 32;
-			base_addr += tmp;
+			base_addr_hi_lo = base_addr_hi_lo << 32;
+			base_addr += base_addr_hi_lo;
 		}
 		break;
 	}
@@ -1331,9 +1331,92 @@ vpci_modern_map_shared_memory(struct virtio_pci_modern_dev *vpdev)
 
 	vpdev->vpci_shared_mem_res_map.vrm_struct_offset |= (offset_hi << 32);
 	vpdev->vpci_shared_mem_res_map.vrm_struct_len |= (length_hi << 32);
+	vpdev->shared_mem_present = true;
 
 exit:
 	return rc;
+}
+
+/**
+ * @brief get the address of the beginning of the shared memory region with
+ * ID @p shm_id
+ *
+ * Output is valid only if the vpci_modern_shm_present returns true
+ *
+ * @param dev
+ * @param shm_id
+ * @return uint64_t the output is valid only if
+ */
+static uint64_t
+vpci_modern_get_shm_addr(struct virtio_dev *vdev, uint8_t shm_id)
+{
+	/* TODOFS: in the general case we have to go through all the shared
+	   memory capabilities and find the one with the correct ID.
+	   in the case of virtiofs, however, there can only be one shared
+	   memory region (ID 0), therefore this method suffices for now. */
+
+	struct virtio_pci_modern_dev *vpdev;
+	uint64_t base_addr;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	if (!vpdev->shared_mem_present) {
+		uk_pr_err("Shared memory region with id %" __PRIu8 " is not \
+		present \n", shm_id);
+		return -1;
+	}
+
+	base_addr = vpci_modern_base_addr_get(&vpdev->vpci_shared_mem_res_map);
+	base_addr += vpdev->vpci_shared_mem_res_map.vrm_struct_offset;
+
+	return base_addr;
+}
+
+static uint64_t
+vpci_modern_get_shm_length(struct virtio_dev *vdev, uint8_t shm_id)
+{
+	/* TODOFS: in the general case we have to go through all the shared
+	   memory capabilities and find the one with the correct ID.
+	   in the case of virtiofs, however, there can only be one shared
+	   memory region (ID 0), therefore this method suffices for now. */
+
+	struct virtio_pci_modern_dev *vpdev;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	if (!vpdev->shared_mem_present) {
+		uk_pr_err("Shared memory region with id %" __PRIu8 " is not \
+		present \n", shm_id);
+		return -1;
+	}
+
+	return vpdev->vpci_shared_mem_res_map.vrm_struct_len;
+}
+
+/**
+ * @brief checks if the shared memory region with ID @p shm_id is present.
+ *
+ * @param dev
+ * @param shm_id
+ * @return true
+ * @return false
+ */
+static bool
+vpci_modern_shm_present(struct virtio_dev *vdev, uint8_t shm_id)
+{
+	/* TODOFS: in the general case we have to go through all the shared
+	   memory capabilities and find the one with the correct ID.
+	   in the case of virtiofs, however, there can only be one shared
+	   memory region (ID 0), therefore this method suffices for now. */
+	(void) shm_id;
+	struct virtio_pci_modern_dev *vpdev;
+
+	UK_ASSERT(vdev);
+	vpdev = to_virtio_pci_modern_dev(vdev);
+
+	return vpdev->shared_mem_present;
 }
 
 static int
@@ -1419,7 +1502,6 @@ static int virtio_pci_handle(void *arg)
 	}
 	return rc;
 }
-
 
 static int vpci_modern_map_configs(struct virtio_pci_modern_dev *vpdev)
 {
@@ -1629,11 +1711,12 @@ static int virtio_pci_modern_add_dev(struct pci_device *pdev)
 	}
 	/* Initializing the virtio pci device */
 	vpci_dev->pdev = pdev;
-	/* Initializing the virtio pci device */
+	/* Initializing the virtio device */
 	vpci_dev->vdev.id.virtio_device_id =
 		pdev->id.device_id - VIRTIO_MODERN_ID_START;
-	vpci_dev->vdev.cops = &vpci_legacy_ops;
+	vpci_dev->vdev.cops = &vpci_modern_ops;
 	vpci_dev->vdev.priv = vpci_dev;
+	vpci_dev->shared_mem_present = false;
 
 	rc = vpci_modern_map_configs(vpci_dev);
 	if (unlikely(rc)) {

@@ -1,0 +1,4 @@
+config LIBVIRTIOFS
+	bool "virtiofs: virtiofs driver"
+	default n
+	depends on LIBUKFUSE
