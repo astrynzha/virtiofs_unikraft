@@ -1160,21 +1160,21 @@ int test_method() {
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
 		    read_message);
 
-	if ((rc = uk_fuse_lseek_request(dev, fc.nodeid, fc.fh,
-			3, SEEK_SET, &lseek_off))) {
-		uk_pr_err("uk_fuse_read_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_lseek_request(dev, fc.nodeid, fc.fh,
+	// 		3, SEEK_SET, &lseek_off))) {
+	// 	uk_pr_err("uk_fuse_read_request has failed \n");
+	// 	goto free;
+	// }
 
-	bytes_transferred = 0;
-	if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 0,
-			       read_size_lseek, read_message_lseek,
-			       &bytes_transferred))) {
-		uk_pr_err("uk_fuse_read_request has failed \n");
-		goto free;
-	}
-	uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
-		    bytes_transferred, read_message_lseek);
+	// bytes_transferred = 0;
+	// if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 0,
+	// 		       read_size_lseek, read_message_lseek,
+	// 		       &bytes_transferred))) {
+	// 	uk_pr_err("uk_fuse_read_request has failed \n");
+	// 	goto free;
+	// }
+	// uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
+	// 	    bytes_transferred, read_message_lseek);
 
 	if ((rc = uk_fuse_unlink_request(dev, "sometext.txt", false, 2, 1,
 		1))) {

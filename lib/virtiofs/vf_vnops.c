@@ -10,13 +10,18 @@ static struct virtio_dev *vdev_for_dax;
 static inline int uk_vf_read_dax(struct uk_vfdev vfdev, uint64_t nodeid,
 				 uint64_t fh, uint32_t length, uint64_t off)
 {
+	uk_pr_err("Entering %s \n", __func__);
 	/**
 	 * 1. FUSE_SETUPMAPPING. Or maybe keep track internally, if already
 	 * mapped.
 	 * 2. Write stuff directly to memory
 	 */
-	if (vdev_for_dax->cops->shm_present(vdev_for_dax, 0))
-		uk_pr_debug("%s: shm present\n", __func__);
+	if (vdev_for_dax->cops->shm_present(vdev_for_dax, 0)) {
+		uk_pr_err("%s: shm present\n", __func__);
+	} else {
+		uk_pr_err("%s: shm not present\n", __func__);
+	}
+
 
 	return 0;
 
