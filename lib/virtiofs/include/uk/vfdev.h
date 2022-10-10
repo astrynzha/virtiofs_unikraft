@@ -1,7 +1,7 @@
 #ifndef __UK_VFDEV__
 #define __UK_VFDEV__
 
-#include "uk/fusedev_core.h"
+#include <uk/fusedev_core.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -38,13 +38,15 @@ struct uk_vfdev_trans_ops {
 struct uk_vfdev {
 	const struct uk_vfdev_trans_ops *ops;
 	/* FUSE device, through which this vfdev send FUSE requests */
-	struct uk_fuse_dev	fuse_dev;
+	struct uk_fuse_dev		*fuse_dev;
 
 	/* Whether the DAX window can be used.
 	   If not, vfdev fallbacks to FUSE_WRITE and FUSE_READ requests. */
-	bool			dax_enabled;
+	bool				dax_enabled;
 	/* Valid only if dax_enabled==TRUE */
-	uint64_t		dax_addr;
+	uint64_t			dax_addr;
+	/* Length of the DAX window. Valid only if dax_enabled==TRUE */
+	uint64_t			dax_len;
 };
 
 

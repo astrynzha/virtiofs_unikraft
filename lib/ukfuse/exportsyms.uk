@@ -1,4 +1,5 @@
 # fuse.c
+uk_fuse_setupmapping
 test_method
 
 # fusereq.c

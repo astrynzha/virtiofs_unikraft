@@ -6,3 +6,4 @@ uk_vfdev_trans_get_default
 # TODOFS: remove
 add_vdev_for_dax
 vf_test_method
+add_fusedev

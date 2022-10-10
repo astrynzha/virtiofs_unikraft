@@ -23,6 +23,9 @@
 #include <uk/process.h>
 #include <uk/essentials.h>
 #include <stdlib.h>
+#include <uk/vf_vnops.h>
+/* TODOFS: remove */
+
 
 /* TODO: Temporary declaration. To remove, when getpid is added to nolibc */
 pid_t getpid(void);
@@ -1047,6 +1050,8 @@ free:
 
 int test_method() {
 	int rc = 0;
+	struct uk_fusedev_trans *trans;
+	struct uk_fuse_dev *dev;
 	struct fuse_attr attr = {0};
 	// FUSE_LOOKUP_OUT lookup_out = {0};
 	// uint64_t fh;
@@ -1071,7 +1076,6 @@ int test_method() {
 	size_t read_size_lseek;
 	off_t lseek_off;
 
-
 	read_size = sizeof(char) * (strlen(send_message) + 1 - 3);
 	read_message = malloc(read_size);
 	if (!read_message) {
@@ -1086,9 +1090,8 @@ int test_method() {
 		return -1;
 	}
 
-	struct uk_fusedev_trans *trans = uk_fusedev_trans_get_default();
-	struct uk_fuse_dev *dev =
-		uk_fusedev_connect(trans, "myfs", NULL);
+	trans = uk_fusedev_trans_get_default();
+	dev = uk_fusedev_connect(trans, "myfs", NULL);
 
 
 	if ((rc = uk_fuse_init_reqeust(dev))) {
@@ -1160,6 +1163,8 @@ int test_method() {
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
 		    read_message);
 
+	add_fusedev(dev);
+
 	// if ((rc = uk_fuse_lseek_request(dev, fc.nodeid, fc.fh,
 	// 		3, SEEK_SET, &lseek_off))) {
 	// 	uk_pr_err("uk_fuse_read_request has failed \n");
@@ -1176,11 +1181,11 @@ int test_method() {
 	// uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
 	// 	    bytes_transferred, read_message_lseek);
 
-	if ((rc = uk_fuse_unlink_request(dev, "sometext.txt", false, 2, 1,
-		1))) {
-		uk_pr_err("uk_fuse_delete_request has failed \n");
-		goto free;
-	}
+	// if ((rc = uk_fuse_unlink_request(dev, fc.file_name, false, 2, 1,
+	// 	1))) {
+	// 	uk_pr_err("uk_fuse_delete_request has failed \n");
+	// 	goto free;
+	// }
 
 	// if ((rc = uk_fuse_mkdir_request(dev, 1,
 	// 	"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
@@ -1219,8 +1224,6 @@ int test_method() {
 	// 	goto free;
 	// }
 
-
-
 	// if ((rc = uk_fuse_open_request(dev, true, 2, &rootdir.fh, 0))) {
 	// 	uk_pr_err("uk_fuse_open_request has failed \n");
 	// 	goto free;
@@ -1253,8 +1256,8 @@ int test_method() {
 	// 	goto free;
 	// }
 
-	if ((rc = uk_fusedev_disconnect(dev)))
-		goto free;
+	// if ((rc = uk_fusedev_disconnect(dev)))
+	// 	goto free;
 
 
 free:
@@ -1262,4 +1265,5 @@ free:
 	free(read_message_lseek);
 	return rc;
 }
+/* TODOFS: remove */
 

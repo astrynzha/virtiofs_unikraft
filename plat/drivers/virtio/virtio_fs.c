@@ -83,6 +83,8 @@
 #include <uk/fusedev.h>
 #include <uk/fusereq.h>
 #include <stdbool.h>
+/* TODOFS: remove */
+#include <uk/vf_vnops.h>
 
 
 
@@ -553,8 +555,6 @@ void test_method_1() {
 	test_method();
 }
 
-/* TODOFS: remove */
-#include <uk/vf_vnops.h>
 
 static int virtio_fs_add_dev(struct virtio_dev *vdev)
 {
@@ -585,8 +585,8 @@ static int virtio_fs_add_dev(struct virtio_dev *vdev)
 	uk_list_add(&d->_list, &virtio_fs_device_list);
 	ukarch_spin_unlock(&virtio_fs_device_list_lock);
 
-	add_vdev_for_dax(vdev);
 
+	add_vdev_for_dax(vdev);
 	test_method_1();
 	vf_test_method();
 out:

@@ -65,7 +65,6 @@
 #include "uk/assert.h"
 #include "uk/plat/bootstrap.h"
 #include "uk/thread.h"
-#include "uk/vfdev.h"
 #include <stdint.h>
 #include <uk/list.h>
 #include <uk/config.h>

@@ -25,6 +25,10 @@ typedef struct
 	uint32_t mode;
 } fuse_file_context;
 
+int uk_fuse_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+			 uint64_t foffset, uint64_t len, uint64_t flags,
+			 uint64_t moffset);
+
 int uk_fuse_lseek_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			  uint64_t offset, uint32_t whence,
 			  off_t *offset_out);
