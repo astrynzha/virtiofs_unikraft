@@ -860,7 +860,7 @@ free:
  * @return int
  */
 int uk_fuse_open_request(struct uk_fuse_dev *dev, bool is_dir,
-			 uint64_t nodeid, uint64_t *fh, uint32_t flags)
+			 uint64_t nodeid, uint32_t flags, uint64_t *fh)
 {
 	int rc = 0;
 	FUSE_OPEN_IN open_in = {0};
@@ -1057,7 +1057,7 @@ int test_method() {
 	// uint64_t fh;
 	fuse_file_context fc = {
 		.is_dir = false,
-		.file_name = "sometext.txt",
+		.name = "sometext.txt",
 		.mode = S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
 		.flags = O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK | O_LARGEFILE,
 		.parent_nodeid = 1
@@ -1113,9 +1113,8 @@ int test_method() {
 	// dev->owner_uid = lookup_out.entry.attr.uid;
 	// dev->owner_gid = lookup_out.entry.attr.gid;
 
-
 	if ((rc = uk_fuse_create_request(dev, fc.parent_nodeid,
-			fc.file_name, fc.flags, fc.mode,
+			fc.name, fc.flags, fc.mode,
 			&fc.nodeid, &fc.fh,
 			&fc.nlookup))) {
 		uk_pr_err("uk_fuse_create_file_request has failed \n");
@@ -1181,17 +1180,17 @@ int test_method() {
 	// uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
 	// 	    bytes_transferred, read_message_lseek);
 
-	// if ((rc = uk_fuse_unlink_request(dev, fc.file_name, false, 2, 1,
-	// 	1))) {
-	// 	uk_pr_err("uk_fuse_delete_request has failed \n");
-	// 	goto free;
-	// }
+	if ((rc = uk_fuse_unlink_request(dev, fc.name, false, 2, 1,
+		1))) {
+		uk_pr_err("uk_fuse_delete_request has failed \n");
+		goto free;
+	}
 
-	// if ((rc = uk_fuse_mkdir_request(dev, 1,
-	// 	"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
-	// 	uk_pr_err("uk_fuse_mkdir_request has failed \n");
-	// 	goto free;
-	// }
+	if ((rc = uk_fuse_mkdir_request(dev, 1,
+		"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free;
+	}
 
 	// memset(&fc.file_name, 0,
 	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));

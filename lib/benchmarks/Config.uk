@@ -1,0 +1,5 @@
+config LIBBENCHMARKS
+	bool "benchmarks: shared file-system benchmarks"
+	default n
+	depends on LIBUKFUSE
+	depends on LIBVIRTIOFS

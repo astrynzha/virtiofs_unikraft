@@ -13,7 +13,7 @@ typedef struct
 {
 	bool is_dir;
 
-	char file_name[NAME_MAX + 1];
+	char name[NAME_MAX + 1];
 	uint64_t nodeid;
 	uint64_t fh; /* file handle */
 	uint64_t parent_nodeid;
@@ -74,7 +74,7 @@ int uk_fuse_create_request(struct uk_fuse_dev *dev, uint64_t parent,
 			   uint64_t *nlookup);
 
 int uk_fuse_open_request(struct uk_fuse_dev *dev, bool is_dir,
-			 uint64_t nodeid, uint64_t *fh, uint32_t flags);
+			 uint64_t nodeid, uint32_t flags, uint64_t *fh);
 
 int uk_fuse_lookup_request(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 		   const char *filename, FUSE_LOOKUP_OUT *lookup_out);

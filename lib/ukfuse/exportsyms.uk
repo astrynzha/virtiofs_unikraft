@@ -1,5 +1,20 @@
 # fuse.c
 uk_fuse_setupmapping
+uk_fuse_lseek_request
+uk_fuse_readdirplus_request
+uk_fuse_mkdir_request
+uk_fuse_forget_request
+uk_fuse_unlink_request
+uk_fuse_read_request
+uk_fuse_write_request
+uk_fuse_release_request
+uk_fuse_setattr_request
+uk_fuse_flush_request
+uk_fuse_create_request
+uk_fuse_open_request
+uk_fuse_lookup_request
+uk_fuse_get_attr_request
+uk_fuse_init_reqeust
 test_method
 
 # fusereq.c
@@ -8,8 +23,10 @@ uk_fusereq_put
 uk_fusereq_receive_cb
 
 # fusedev.c
+uk_fusedev_connect
 uk_fusedev_req_to_freelist
 uk_fusedev_xmit_notify
 
 # fusedev_trans.c
 uk_fusedev_trans_register
+uk_fusedev_trans_get_default
