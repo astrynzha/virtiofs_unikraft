@@ -1,5 +1,6 @@
 #include "uk/scenario_runners.h"
 #include "fcntl.h"
+#include "uk/print.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -25,30 +26,37 @@
 void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			 size_t arr_size, int measurements) {
 	int rc = 0;
-	fuse_file_context dc = {.is_dir = true, .name = "create_files_DAX",
+	fuse_file_context dc = {.is_dir = true, .name = "create_files_virtiofs",
 		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK,
 		.parent_nodeid = 1
 	};
-	fuse_file_context results_fc = {.is_dir = false, .name = "results.csv"};
-	fuse_file_context measurement_fcs[arr_size];
+	fuse_file_context results_fc = {.is_dir = false, .name = "results.csv",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK};
+	fuse_file_context *measurement_fcs;
+	uint64_t meas_file_offset = 0;
 	uint32_t bytes_transferred;
 	uint64_t results_offset = 0;
 
 	char measurement_text[100] = {0};
+	measurement_fcs = calloc(arr_size, sizeof(fuse_file_context));
+	if (!measurement_fcs) {
+		uk_pr_err("calloc failed \n");
+		return;
+	}
 
 	// create a separate directory for this experiment
 	rc = uk_fuse_mkdir_request(fusedev, 1, dc.name,
 		dc.mode, &dc.nodeid, &dc.nlookup);
 	if (rc) {
 		uk_pr_err("uk_fuse_mkdir_request has failed \n");
-		return;
+		goto free;
 	}
-	rc = uk_fuse_create_request(fusedev, results_fc.parent_nodeid,
+	rc = uk_fuse_create_request(fusedev, dc.nodeid,
 		results_fc.name, results_fc.flags, results_fc.mode,
 		&results_fc.nodeid, &results_fc.fh, &results_fc.nlookup);
 	if (rc) {
 		uk_pr_err("uk_fuse_mkdir_request has failed \n");
-		return;
+		goto free;
 	}
 
 	for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each given amount of files
@@ -60,7 +68,7 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			&measurement_fcs[i].nlookup);
 		if (rc) {
 			uk_pr_err("uk_fuse_create_request has failed \n");
-			return;
+			goto free;
 		}
 
 		FILES amount = amount_arr[i];
@@ -73,25 +81,29 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		__nanosec total = 0;
 
 		// measures 'measurements' times, how long the creation 'amount' of files takes
-		for (int i = 0; i < measurements; i++) {
-				printf("    Measurement %d/%d running...\n", i + 1, measurements);
+		for (int j = 0; j < measurements; j++) {
+			printf("    Measurement %d/%d running...\n", j + 1, measurements);
 
 			result = create_files(fusedev, amount);
 
 			sprintf(measurement_text, "%lu\n", result);
+			bytes_transferred = 0;
 			rc = uk_fuse_write_request(fusedev,
 				measurement_fcs[i].nodeid, measurement_fcs[i].fh,
 				measurement_text, strlen(measurement_text),
-				0, &bytes_transferred);
+				meas_file_offset, &bytes_transferred);
 			if (rc) {
 				uk_pr_err("uk_fuse_write_request has failed \n");
-				return;
+				goto free;
 			}
+			meas_file_offset += bytes_transferred;
+			
 			result_ms = nanosec_to_milisec(result);
 			printf("    Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
 
 			total += result;
 		}
+		meas_file_offset = 0;
 
 		total /= measurements;
 		sprintf(measurement_text, "%lu,%lu\n", amount, total);
@@ -101,7 +113,7 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			&bytes_transferred);
 		if (rc) {
 			uk_pr_err("uk_fuse_write_request has failed \n");
-			return;
+			goto free;
 		}
 		results_offset += bytes_transferred;
 
@@ -114,7 +126,7 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			measurement_fcs[i].nodeid, measurement_fcs[i].fh);
 		if (rc) {
 			uk_pr_err("uk_fuse_release_request has failed \n");
-			return;
+			goto free;
 		}
 	}
 
@@ -122,14 +134,17 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		results_fc.nodeid, results_fc.fh);
 	if (rc) {
 			uk_pr_err("uk_fuse_release_request has failed \n");
-			return;
+			goto free;
 	}
 	rc = uk_fuse_release_request(fusedev, true,
 		dc.nodeid, dc.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_release_request has failed \n");
-		return;
+		goto free;
 	}
+
+free:
+	free(measurement_fcs);
 }
 
 // void remove_files_runner(FILES *amount_arr, size_t arr_size, int measurements) {

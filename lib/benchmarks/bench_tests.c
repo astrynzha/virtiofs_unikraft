@@ -2,15 +2,15 @@
 #include <stdlib.h>
 
 #include <unistd.h>
-
-#include "uk/fusedev.h"
-#include "uk/fusedev_trans.h"
+#include "uk/bench_tests.h"
 #include "uk/measurement_scenarios.h"
 #include "uk/helper_functions.h"
 #include "uk/print.h"
 #include "uk/scenario_runners.h"
 
 /* ukfuse */
+#include "uk/fusedev.h"
+#include "uk/fusedev_trans.h"
 #include "uk/fusedev_core.h"
 #include "uk/fuse.h"
 
@@ -31,7 +31,7 @@ BYTES bpow(BYTES base, BYTES exp)
 	return result;
 }
 
-void main_test(void)
+void bench_test(void)
 {
 	int rc = 0;
 	struct uk_fusedev_trans *trans;

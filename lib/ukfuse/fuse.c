@@ -23,8 +23,8 @@
 #include <uk/process.h>
 #include <uk/essentials.h>
 #include <stdlib.h>
-#include <uk/vf_vnops.h>
 /* TODOFS: remove */
+#include <uk/vf_vnops.h>
 
 
 /* TODO: Temporary declaration. To remove, when getpid is added to nolibc */

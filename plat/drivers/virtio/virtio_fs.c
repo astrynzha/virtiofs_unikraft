@@ -83,8 +83,9 @@
 #include <uk/fusedev.h>
 #include <uk/fusereq.h>
 #include <stdbool.h>
-/* TODOFS: remove */
 #include <uk/vf_vnops.h>
+#include <uk/bench_tests.h>
+/* TODOFS: remove */
 
 
 
@@ -587,8 +588,9 @@ static int virtio_fs_add_dev(struct virtio_dev *vdev)
 
 
 	add_vdev_for_dax(vdev);
-	test_method_1();
-	vf_test_method();
+	// test_method_1();
+	// vf_test_method();
+	bench_test();
 out:
 	return rc;
 out_free:
