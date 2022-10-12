@@ -31,10 +31,11 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		.parent_nodeid = 1
 	};
 	fuse_file_context results_fc = {.is_dir = false, .name = "results.csv",
-		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK};
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK
+	};
 	fuse_file_context *measurement_fcs;
 	uint64_t meas_file_offset = 0;
-	uint32_t bytes_transferred;
+	uint32_t bytes_transferred = 0;
 	uint64_t results_offset = 0;
 
 	char measurement_text[100] = {0};
@@ -87,7 +88,6 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			result = create_files(fusedev, amount);
 
 			sprintf(measurement_text, "%lu\n", result);
-			bytes_transferred = 0;
 			rc = uk_fuse_write_request(fusedev,
 				measurement_fcs[i].nodeid, measurement_fcs[i].fh,
 				measurement_text, strlen(measurement_text),
@@ -97,7 +97,8 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 				goto free;
 			}
 			meas_file_offset += bytes_transferred;
-			
+			measurement_text[0] = '\0';
+
 			result_ms = nanosec_to_milisec(result);
 			printf("    Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
 
@@ -109,13 +110,14 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		sprintf(measurement_text, "%lu,%lu\n", amount, total);
 		rc = uk_fuse_write_request(fusedev, results_fc.nodeid,
 			results_fc.fh, measurement_text,
-			sizeof(measurement_text), results_offset,
+			strlen(measurement_text), results_offset,
 			&bytes_transferred);
 		if (rc) {
 			uk_pr_err("uk_fuse_write_request has failed \n");
 			goto free;
 		}
 		results_offset += bytes_transferred;
+		measurement_text[0] = '\0';
 
 		__nanosec total_ms = nanosec_to_milisec(total);
 
@@ -147,64 +149,131 @@ free:
 	free(measurement_fcs);
 }
 
-// void remove_files_runner(FILES *amount_arr, size_t arr_size, int measurements) {
+void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
+			 size_t arr_size, int measurements)
+{
+	int rc = 0;
+	fuse_file_context dc = {.is_dir = true, .name = "remove_files_virtiofs",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK,
+		.parent_nodeid = 1
+	};
+	fuse_file_context results_fc = {.is_dir = false, .name = "results.csv",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK
+	};
+	fuse_file_context *measurement_fcs;
+	uint64_t meas_file_offset = 0;
+	uint32_t bytes_transferred = 0;
+	uint64_t results_offset = 0;
 
-//     // create a separate directory for this experiment
+	char measurement_text[100] = {0};
+	measurement_fcs = calloc(arr_size, sizeof(fuse_file_context));
+	if (!measurement_fcs) {
+		uk_pr_err("calloc faild \n");
+		return;
+	}
 
-//     #ifdef __Unikraft__
-//     char dir_name[] = "remove_files_unikraft";
-//     #elif __linux__
-//     char dir_name[] = "remove_files_linux";
-//     #endif
-//     mkdir(dir_name, 0777);
-//     if (chdir(dir_name) == -1) {
-//         printf("Error: could not change directory to %s\n", dir_name);
-//     }
+	// create a separate directory for this experiment
+	rc = uk_fuse_mkdir_request(fusedev, 1, dc.name,
+		dc.mode, &dc.nodeid, &dc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_create_request(fusedev, dc.nodeid,
+		results_fc.name, results_fc.flags, results_fc.mode,
+		&results_fc.nodeid, &results_fc.fh, &results_fc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free;
+	}
 
-//     char fname_results[] = "results.csv";
-//     FILE *fp_results = fopen(fname_results, "w");
+	for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each amount of files
+		sprintf(measurement_fcs[i].name, "measurement_%lu.csv", i);
+		rc = uk_fuse_create_request(fusedev, dc.nodeid,
+			measurement_fcs[i].name,
+			O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK, 0777,
+			&measurement_fcs[i].nodeid, &measurement_fcs[i].fh,
+			&measurement_fcs[i].nlookup);
+		if (rc) {
+			uk_pr_err("uk_fuse_create_request has failed \n");
+			goto free;
+		}
 
-//     for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each amount of files
-//         char fname[17+DIGITS(i)];
-//         sprintf(fname, "measurement_%lu.csv", i);
-//         FILE *fp_measurement = fopen(fname, "w");
+		FILES amount = amount_arr[i];
 
-//         FILES amount = amount_arr[i];
+		// measures 'measurements' times the creation of 'amount' files takes
 
-//         // measures 'measurements' times the creation of 'amount' files takes
+		printf("###########################\n");
+		printf("%lu/%lu. Measuring removing %lu files\n", i+1, arr_size, amount);
 
-//         printf("###########################\n");
-//         printf("%lu/%lu. Measuring removing %lu files\n", i+1, arr_size, amount);
+		__nanosec result;
+		__nanosec result_ms;
+		__nanosec total = 0;
 
-//         __nanosec result;
-//         __nanosec result_ms;
-//         __nanosec total = 0;
+		for (int j = 0; j < measurements; j++) {
+			printf("Measurement %d/%d running...\n", j + 1,
+				measurements);
 
-//         for (int i = 0; i < measurements; i++) {
-//             printf("Measurement %d/%d running...\n", i + 1, measurements);
+			result = remove_files(fusedev, amount);
 
-//             result = remove_files(amount);
+			sprintf(measurement_text, "%lu\n", result);
+			rc = uk_fuse_write_request(fusedev,
+				measurement_fcs[i].nodeid, measurement_fcs[i].fh,
+				measurement_text,
+				strlen(measurement_text),
+				meas_file_offset, &bytes_transferred);
+			if (rc) {
+				uk_pr_err("uk_fuse_write_request has failed \n");
+				goto free;
+			}
+			meas_file_offset += bytes_transferred;
+			measurement_text[0] = '\0';
 
-//             fprintf(fp_measurement, "%lu\n", result);
-//             result_ms = nanosec_to_milisec(result);
-//             printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+			result_ms = nanosec_to_milisec(result);
+			printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
 
-//             total += result;
-//         }
+			total += result;
+		}
+		meas_file_offset = 0;
 
-//         total /= measurements;
-//         fprintf(fp_results, "%lu,%lu\n", amount, total);
-//         __nanosec total_ms = nanosec_to_milisec(total);
+		total /= measurements;
+		sprintf(measurement_text, "%lu,%lu\n", amount, total);
+		rc = uk_fuse_write_request(fusedev, results_fc.nodeid,
+			results_fc.fh, measurement_text,
+			strlen(measurement_text),
+			results_offset, &bytes_transferred);
+		results_offset += bytes_transferred;
+		measurement_text[0] = '\0';
 
-//         printf("%d measurements successfully conducted\n", measurements);
-//         printf("Removing %lu files took on average: %lums %.3fs \n", amount, total_ms, (double) total_ms / 1000);
+		__nanosec total_ms = nanosec_to_milisec(total);
 
-//         fclose(fp_measurement);
-//     }
+		printf("%d measurements successfully conducted\n", measurements);
+		printf("Removing %lu files took on average: %lums %.3fs \n", amount, total_ms, (double) total_ms / 1000);
 
-//     fclose(fp_results);
-//     chdir("..");
-// }
+		rc = uk_fuse_release_request(fusedev, false,
+			measurement_fcs[i].nodeid, measurement_fcs[i].fh);
+		if (rc) {
+			uk_pr_err("uk_fuse_release_request has failed \n");
+			goto free;
+		}
+	}
+
+	rc = uk_fuse_release_request(fusedev, false,
+		results_fc.nodeid, results_fc.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_release_request has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_release_request(fusedev, true,
+		dc.nodeid, dc.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_release_request has failed \n");
+		goto free;
+	}
+
+free:
+	free(measurement_fcs);
+}
 
 // void list_dir_runner(FILES *amount_arr, size_t arr_size, int measurements) {
 

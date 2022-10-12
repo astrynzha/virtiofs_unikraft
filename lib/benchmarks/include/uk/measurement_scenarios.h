@@ -10,7 +10,7 @@
 #include "uk/fusedev_core.h"
 
 __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount);
-// __nanosec remove_files(FILES amount);
+__nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount);
 // __nanosec list_dir(FILES file_amount);
 
 // __nanosec write_seq(BYTES bytes, BYTES buffer_size);

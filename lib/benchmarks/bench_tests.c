@@ -67,8 +67,8 @@ void bench_test(void)
 	}
 
 
-	create_files_runner(dev, amount, 17, 10);
-	// remove_files_runner(amount, 17, 10);
+	// create_files_runner(dev, amount, 17, 10);
+	remove_files_runner(dev, amount, 17, 10);
 	// list_dir_runner(amount, 17, 10);
 
 	// int max_pow2 = 27;

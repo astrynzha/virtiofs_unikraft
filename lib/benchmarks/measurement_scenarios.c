@@ -3,6 +3,7 @@
 #include "fcntl.h"
 #include "uk/fusedev.h"
 #include "uk/helper_functions.h"
+#include "uk/print.h"
 #include "uk/time_functions.h"
 
 #include <dirent.h>
@@ -25,13 +26,14 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 	int rc = 0;
 	fuse_file_context *fc;
 	fuse_file_context dc = { .is_dir = true, .name = "create_files",
-		.mode = 0777, .parent_nodeid = 1 };
+		.mode = 0777, .parent_nodeid = 1
+	};
 	__nanosec start = 0, end = 0;
 	char *file_name;
 
 
 	fc = calloc(amount, sizeof(fuse_file_context));
-	if(!fc) {
+	if (!fc) {
 		uk_pr_err("calloc has failed \n");
 		return 0;
 	}
@@ -40,7 +42,7 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		&dc.nlookup);
 	if (rc) {
 		uk_pr_err("uk_fuse_mkdir_request has failed \n");
-		return 0;
+		goto free_fc;
 	}
 
 	// initializing file names
@@ -67,10 +69,14 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 			&fc[i].nlookup);
 		if (rc) {
 			uk_pr_err("uk_fuse_create_request has failed \n");
-			return 0;
+			goto free_fn;
 		}
 		rc = uk_fuse_release_request(fusedev, false,
 			fc[i].nodeid, fc[i].fh);
+		if (rc) {
+			uk_pr_err("uk_fuse_release_request has failed \n");
+			goto free_fn;
+		}
 	}
 
 	end = _clock();
@@ -92,7 +98,8 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		dc.nodeid, dc.nlookup, dc.parent_nodeid);
 	if (rc) {
 		uk_pr_err("uk_fuse_unlink_request has failed \n");
-		return 0;
+		start = end = 0;
+		goto free_fn;
 	}
 
 free_fn:
@@ -102,63 +109,103 @@ free_fc:
 	return end - start;
 }
 
-// /*
-//     Measure creating `amount` files.
+/*
+    Measure creating `amount` files.
 
-//     Necessary files are created and deleted by the function.
-// */
-// __nanosec remove_files(FILES amount) {
-// 	char dir_name[] = "remove_files";
-// 	mkdir(dir_name, 0777);
-// 	chdir(dir_name);
+    Necessary files are created and deleted by the function.
+*/
+__nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
+	int rc = 0;
+	fuse_file_context *fc;
+	fuse_file_context dc = { .is_dir = true, .name = "remove_files",
+		.mode = 0777, .parent_nodeid = 1
+	};
+	__nanosec start = 0, end = 0;
+	char *file_name;
 
-// 	// initializing file names
 
-//     int max_file_name_length = 7 + DIGITS(amount - 1);
-// 	char *file_names = (char*) malloc(amount*max_file_name_length); // 2D array
-// 	init_filenames(amount, max_file_name_length, file_names);
+	fc = calloc(amount, sizeof(fuse_file_context));
+	if (!fc) {
+		uk_pr_err("calloc has failed \n");
+		return 0;
+	}
+	rc = uk_fuse_mkdir_request(fusedev, dc.parent_nodeid,
+		dc.name, 0777, &dc.nodeid, &dc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free_fc;
+	}
 
-//     // creating `amount` empty files
+	// initializing file names
 
-// 	for (FILES i = 0; i < amount; i++) {
-// 		FILE *file = fopen(file_names + i*max_file_name_length, "w");
-// 	    if (file == NULL) {
-//             fprintf(stderr, "Error creating file number %lu.\n", i);
-//             exit(EXIT_FAILURE);
-//         }
-// 		fclose(file);
-// 	}
+	int max_file_name_length = 7 + DIGITS(amount - 1);
+	// 2D array
+	char *file_names = (char*) malloc(amount*max_file_name_length);
+	if (!file_names) {
+		uk_pr_err("malloc has failed \n");
+		goto free_fc;
+	}
+	init_filenames(amount, max_file_name_length, file_names);
 
-// 	// flush FS buffers and free pagecaches
-// 	#ifdef __linux__
-// 	system("sync; echo 3 > /proc/sys/vm/drop_caches");
-// 	#endif
+	// creating `amount` empty files
 
-//     // measuring the delition of `amount` files
+	for (FILES i = 0; i < amount; i++) {
+		file_name = file_names + i * max_file_name_length;
+		rc = uk_fuse_create_request(fusedev, dc.nodeid,
+			file_name, O_WRONLY | O_CREAT | O_EXCL,
+			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
+			&fc[i].nodeid, &fc[i].fh,
+			&fc[i].nlookup);
+		if (rc) {
+			uk_pr_err("uk_fuse_create_request has failed \n");
+			goto free_fn;
+		}
+		rc = uk_fuse_release_request(fusedev, false,
+			fc[i].nodeid, fc[i].fh);
+		if (rc) {
+			uk_pr_err("uk_fuse_release_request has failed \n");
+			goto free_fn;
+		}
+	}
 
-//     __nanosec start, end;
-// 	start = _clock();
-// 	for (FILES i = 0; i < amount; i++) {
-// 		char *file_name = file_names + i * max_file_name_length;
-// 		if (remove(file_name) != 0) {
-// 			fprintf(stderr, "Failed to remove \"%s\" file\n", file_name);
-// 		}
-// 		#ifdef __linux__
-// 		sync();
-// 		#endif
-// 	}
-// 	end = _clock();
+	// flush FS buffers and free pagecaches
+	#ifdef __linux__
+	system("sync; echo 3 > /proc/sys/vm/drop_caches");
+	#endif
 
-//     chdir("..");
-//     int ret = rmdir(dir_name);
-//     if (ret == -1) {
-//         printf("Failed to remove directory %s\n", dir_name);
-//     }
+	// measuring the delition of `amount` files
 
-// 	free(file_names);
+	start = _clock();
+	for (FILES i = 0; i < amount; i++) {
+		file_name = file_names + i * max_file_name_length;
+		rc = uk_fuse_unlink_request(fusedev, file_name,
+			false, fc[i].nodeid,
+			fc[i].nlookup, dc.nodeid);
+		if (rc) {
+			uk_pr_err("uk_fuse_mkdir_request has failed \n");
+			start = end = 0;
+			goto free_fn;
+		}
+		#ifdef __linux__
+		sync();
+		#endif
+	}
+	end = _clock();
 
-//     return end - start;
-// }
+	rc = uk_fuse_unlink_request(fusedev, dc.name, true,
+		dc.nodeid, dc.nlookup, dc.parent_nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_unlink_request has failed \n");
+		start = end = 0;
+		goto free_fn;
+	}
+
+free_fn:
+	free(file_names);
+free_fc:
+	free(fc);
+	return end - start;
+}
 
 // /*
 //     Measure listing (e.g. ls command) of files. 'file_amount'
