@@ -1,5 +1,6 @@
 #include "uk/scenario_runners.h"
 #include "fcntl.h"
+#include "stdbool.h"
 #include "uk/print.h"
 
 #include <stdint.h>
@@ -56,7 +57,7 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		results_fc.name, results_fc.flags, results_fc.mode,
 		&results_fc.nodeid, &results_fc.fh, &results_fc.nlookup);
 	if (rc) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		uk_pr_err("uk_fuse_create_request has failed \n");
 		goto free;
 	}
 
@@ -138,12 +139,6 @@ void create_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			uk_pr_err("uk_fuse_release_request has failed \n");
 			goto free;
 	}
-	rc = uk_fuse_release_request(fusedev, true,
-		dc.nodeid, dc.fh);
-	if (rc) {
-		uk_pr_err("uk_fuse_release_request has failed \n");
-		goto free;
-	}
 
 free:
 	free(measurement_fcs);
@@ -168,7 +163,7 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 	char measurement_text[100] = {0};
 	measurement_fcs = calloc(arr_size, sizeof(fuse_file_context));
 	if (!measurement_fcs) {
-		uk_pr_err("calloc faild \n");
+		uk_pr_err("calloc failed \n");
 		return;
 	}
 
@@ -183,7 +178,7 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		results_fc.name, results_fc.flags, results_fc.mode,
 		&results_fc.nodeid, &results_fc.fh, &results_fc.nlookup);
 	if (rc) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		uk_pr_err("uk_fuse_create_request has failed \n");
 		goto free;
 	}
 
@@ -242,6 +237,10 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			results_fc.fh, measurement_text,
 			strlen(measurement_text),
 			results_offset, &bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_write_request has failed \n");
+			goto free;
+		}
 		results_offset += bytes_transferred;
 		measurement_text[0] = '\0';
 
@@ -264,113 +263,201 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		uk_pr_err("uk_fuse_release_request has failed \n");
 		goto free;
 	}
-	rc = uk_fuse_release_request(fusedev, true,
-		dc.nodeid, dc.fh);
-	if (rc) {
-		uk_pr_err("uk_fuse_release_request has failed \n");
-		goto free;
-	}
 
 free:
 	free(measurement_fcs);
 }
 
-// void list_dir_runner(FILES *amount_arr, size_t arr_size, int measurements) {
+void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
+		     size_t arr_size, int measurements)
+{
+	int rc = 0;
+	fuse_file_context dc = {.is_dir = true, .name = "list_dir_virtiofs",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK,
+		.parent_nodeid = 1
+	};
+	fuse_file_context dc_ls = {.is_dir = true, .name = "sample_files",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXEC | O_NONBLOCK,
+	};
+	fuse_file_context results_fc = {.is_dir = false, .name = "results.csv",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK
+	};
+	fuse_file_context *measurement_fcs;
+	fuse_file_context *dummy_fcs;
+	uint64_t meas_file_offset = 0;
+	uint32_t bytes_transferred = 0;
+	uint64_t results_offset = 0;
 
-//     // create outer directory
+	char measurement_text[100] = {0};
+	measurement_fcs = calloc(arr_size, sizeof(fuse_file_context));
+	if (!measurement_fcs) {
+		uk_pr_err("calloc failed");
+		return;
+	}
+	// create outer directory
+	rc = uk_fuse_mkdir_request(fusedev, 1, dc.name,
+		dc.mode, &dc.nodeid, &dc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_create_request(fusedev, dc.nodeid,
+		results_fc.name, results_fc.flags, results_fc.mode,
+		&results_fc.nodeid, &results_fc.fh, &results_fc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_create_request has failed \n");
+		goto free;
+	}
 
-//     #ifdef __Unikraft__
-//     char dir_name[] = "list_dir_unikraft";
-//     #elif __linux__
-//     char dir_name[] = "list_dir_linux";
-//     #endif
-//     mkdir(dir_name, 0777);
-//     if (chdir(dir_name) == -1) {
-//         printf("Error: could not change directory to %s\n", dir_name);
-//     }
+	for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each amount of files
+		rc = uk_fuse_mkdir_request(fusedev, dc.nodeid,
+			dc_ls.name, dc_ls.mode, &dc_ls.nodeid,
+			&dc_ls.nlookup);
+		if (rc) {
+			uk_pr_err("uk_fuse_mkdir_request has failed \n");
+			goto free;
+		}
+		sprintf(measurement_fcs[i].name, "measurement_%lu.csv", i);
+		rc = uk_fuse_create_request(fusedev, dc.nodeid,
+			measurement_fcs[i].name,
+			O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK, 0777,
+			&measurement_fcs[i].nodeid, &measurement_fcs[i].fh,
+			&measurement_fcs[i].nlookup);
+		if (rc) {
+			uk_pr_err("uk_fuse_create_request has failed \n");
+			goto free;
+		}
 
-//     // file for mean
+		FILES amount = amount_arr[i];
 
-//     char fname_results[] = "results.csv";
-//     FILE *fp_results = fopen(fname_results, "w");
+		// initializing dummy files
+
+		int max_file_name_length = 7 + DIGITS(amount - 1);
+		char *file_names = (char*) malloc(amount*max_file_name_length); // implicit 2D array
+		init_filenames(amount, max_file_name_length, file_names);
+
+		dummy_fcs = calloc(amount, sizeof(fuse_file_context));
+		if (!dummy_fcs) {
+			uk_pr_err("calloc failed \n");
+			goto free;
+		}
+		for (FILES i = 0; i < amount; i++) {
+			rc = uk_fuse_create_request(fusedev, dc_ls.nodeid,
+				file_names + i*max_file_name_length,
+				O_WRONLY | O_CREAT | O_EXCL, 0777,
+				&dummy_fcs[i].nodeid, &dummy_fcs[i].fh,
+				&dummy_fcs[i].nlookup);
+			if (rc) {
+				uk_pr_err("uk_fuse_create_request has failed \n");
+				free(dummy_fcs);
+				goto free;
+			}
+		}
+
+		printf("###########################\n");
+		printf("%lu/%lu. Measuring listing %lu files\n", i+1, arr_size, amount);
+
+		__nanosec result;
+		__nanosec result_ms;
+		__nanosec total = 0;
+
+		// measuring 'measurements' times the listing of 'file_amount' files takes
+		for (int j = 0; j < measurements; j++) {
+			#ifdef __linux__
+			system("sync; echo 3 > /proc/sys/vm/drop_caches");
+			#endif
+
+			printf("Measurement %d/%d running...\n", j + 1, measurements);
+
+			result = list_dir(fusedev, amount, dc_ls.nodeid);
+
+			sprintf(measurement_text, "%lu\n", result);
+			rc = uk_fuse_write_request(fusedev,
+				measurement_fcs[i].nodeid,
+				measurement_fcs[i].fh, measurement_text,
+				strlen(measurement_text), meas_file_offset,
+				&bytes_transferred);
+			if (rc) {
+				uk_pr_err("uk_fuse_write_request has failed \n");
+				free(dummy_fcs);
+				goto free;
+			}
+			meas_file_offset += bytes_transferred;
+			measurement_text[0] = '\0';
+
+			result_ms = nanosec_to_milisec(result);
+			printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+
+			total += result;
+		}
+		meas_file_offset = 0;
+
+		total /= measurements;
+		sprintf(measurement_text, "%lu,%lu\n", amount, total);
+		rc = uk_fuse_write_request(fusedev, results_fc.nodeid,
+			results_fc.fh, measurement_text,
+			strlen(measurement_text),
+			results_offset, &bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_write_request has failed \n");
+			free(dummy_fcs);
+			goto free;
+		}
+		results_offset += bytes_transferred;
+		measurement_text[0] = '\0';
+
+		__nanosec total_ms = nanosec_to_milisec(total);
+
+		printf("%d measurements successfully conducted\n", measurements);
+		printf("Listing %lu files took on average: %lums %.3fs \n", amount, total_ms, (double) total_ms / 1000);
+
+		// deleting all created files and directories
+
+		for (FILES i = 0; i < amount; i++) {
+			rc = uk_fuse_unlink_request(fusedev,
+				file_names + i*max_file_name_length,
+				false, dummy_fcs[i].nodeid,
+				dummy_fcs[i].nlookup,
+				dc_ls.nodeid);
+			if (rc) {
+				uk_pr_err("uk_fuse_unlink_request has failed \n");
+				free(dummy_fcs);
+				goto free;
+			}
+		}
+		rc = uk_fuse_unlink_request(fusedev,
+				dc_ls.name,
+				true, dc_ls.nodeid,
+				dc_ls.nlookup,
+				dc.nodeid);
+		if (rc) {
+			uk_pr_err("uk_fuse_unlink_request has failed \n");
+			free(dummy_fcs);
+			goto free;
+		}
+
+		rc = uk_fuse_release_request(fusedev, false,
+			measurement_fcs[i].nodeid, measurement_fcs[i].fh);
+		if (rc) {
+			uk_pr_err("uk_fuse_release_request has failed \n");
+			free(dummy_fcs);
+			goto free;
+		}
+
+		free(dummy_fcs);
+	}
 
 
-//     for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each amount of files
+	rc = uk_fuse_release_request(fusedev, false,
+		results_fc.nodeid, results_fc.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_release_request has failed \n");
+			goto free;
+	}
 
-//         // directory for files to create and list in
-
-//         char list_dir_name[] = "list_dir";
-//         mkdir(list_dir_name, 0777);
-//         chdir(list_dir_name);
-
-//         chdir("..");
-//         char fname[17+DIGITS(i)];
-//         sprintf(fname, "measurement_%lu.csv", i);
-//         FILE *fp_measurement = fopen(fname, "w");
-//         chdir(list_dir_name);
-
-//         FILES file_amount = amount_arr[i];
-
-//         // initializing dummy files
-
-//         int max_file_name_length = 7 + DIGITS(file_amount - 1);
-//         char *file_names = (char*) malloc(file_amount*max_file_name_length); // implicit 2D array
-//         init_filenames(file_amount, max_file_name_length, file_names);
-
-//         for (FILES i = 0; i < file_amount; i++) {
-//             create_file_of_size(file_names + i*max_file_name_length, 0);
-//         }
-
-//         printf("###########################\n");
-//         printf("%lu/%lu. Measuring listing %lu files\n", i+1, arr_size, file_amount);
-
-//         __nanosec result;
-//         __nanosec result_ms;
-//         __nanosec total = 0;
-
-//         // measuring 'measurements' times the listing of 'file_amount' files takes
-//         for (int i = 0; i < measurements; i++) {
-//             #ifdef __linux__
-//             system("sync; echo 3 > /proc/sys/vm/drop_caches");
-//             #endif
-
-//             printf("Measurement %d/%d running...\n", i + 1, measurements);
-
-//             result = list_dir(file_amount);
-
-//             fprintf(fp_measurement, "%lu\n", result);
-//             result_ms = nanosec_to_milisec(result);
-//             printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
-
-//             total += result;
-//         }
-
-//         total /= measurements;
-//         fprintf(fp_results, "%lu,%lu\n", file_amount, total);
-//         __nanosec total_ms = nanosec_to_milisec(total);
-
-//         printf("%d measurements successfully conducted\n", measurements);
-//         printf("Listing %lu files took on average: %lums %.3fs \n", file_amount, total_ms, (double) total_ms / 1000);
-
-//         // deleting all created files and directories
-
-//         for (FILES i = 0; i < file_amount; i++) {
-//             if (remove(file_names + i*max_file_name_length) != 0) {
-//                 fprintf(stderr, "Failed to remove \"%s\" file\n", file_names + i*max_file_name_length);
-//             }
-//         }
-//         chdir("..");
-//         int ret = rmdir(list_dir_name);
-//         if (ret == -1) {
-//             printf("Failed to remove directory %s\n", dir_name);
-//         }
-
-//         fclose(fp_measurement);
-//     }
-
-//     fclose(fp_results);
-//     chdir("..");
-// }
+free:
+	free(measurement_fcs);
+}
 
 // void write_seq_runner(BYTES bytes, BYTES *buffer_size_arr, size_t arr_size, int measurements) {
 

@@ -1,6 +1,9 @@
 #include "uk/measurement_scenarios.h"
 #include "uk/fuse.h"
 #include "fcntl.h"
+#include "limits.h"
+#include "uk/arch/lcpu.h"
+#include "uk/assert.h"
 #include "uk/fusedev.h"
 #include "uk/helper_functions.h"
 #include "uk/print.h"
@@ -89,7 +92,7 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 			false, fc[i].nodeid,
 			fc[i].nlookup, dc.nodeid);
 		if (rc) {
-			uk_pr_err("uk_fuse_mkdir_request has failed \n");
+			uk_pr_err("uk_fuse_unlink_request has failed \n");
 			start = end = 0;
 			goto free_fn;
 		}
@@ -182,8 +185,7 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 			false, fc[i].nodeid,
 			fc[i].nlookup, dc.nodeid);
 		if (rc) {
-			uk_pr_err("uk_fuse_mkdir_request has failed \n");
-			start = end = 0;
+			uk_pr_err("uk_fuse_unlink_request has failed \n");
 			goto free_fn;
 		}
 		#ifdef __linux__
@@ -196,55 +198,96 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		dc.nodeid, dc.nlookup, dc.parent_nodeid);
 	if (rc) {
 		uk_pr_err("uk_fuse_unlink_request has failed \n");
-		start = end = 0;
 		goto free_fn;
 	}
+
+	free(file_names);
+	free(fc);
+	return end - start;
 
 free_fn:
 	free(file_names);
 free_fc:
 	free(fc);
-	return end - start;
+	return 0;
 }
 
-// /*
-//     Measure listing (e.g. ls command) of files. 'file_amount'
-// 	specifies how many files are in the directory.
+/*
+*/
 
-//     Necessary files are to be created and deleted by the caller
-// */
-// __nanosec list_dir(FILES file_amount) {
-// 	__nanosec start, end;
+/**
+ * @brief
+ *
+ * Measure listing (e.g. ls command) of files. 'file_amount'
+ * specifies how many files are in the directory.
+ *
+ * Necessary files are to be created and deleted by the caller
+ * Assumes that @parent is opened
+ *
+ * @param fusedev
+ * @param file_amount
+ * @param parent nodeid of the directory, where the files are located
+ * @return __nanosec
+ */
+__nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir) {
+	int rc = 0;
+	uint64_t dir_fh;
+	struct fuse_dirent *dirents;
+	size_t num_dirents;
+	char str[NAME_MAX + 1];
+	__nanosec start = 0, end = 0;
 
-// 	start = _clock();
+	dirents = calloc(file_amount, sizeof(struct fuse_dirent));
+	if (!dirents) {
+		uk_pr_err("calloc failed \n");
+		return 0;
+	}
 
-// 	DIR *dp;
-// 	struct dirent *ep;
-// 	dp = opendir ("./");
-//     if (dp == NULL) {
-// 		fprintf(stderr, "Couldn't open the directory\n");
-//     }
+	start = _clock();
 
-// 	char str[256];
-// 	#ifdef DEBUGMODE
-// 	FILES file_count = 0;
-// 	#endif
-//     while ( (ep = readdir (dp)) ) {
-// 		strcpy(str, ep->d_name); // using filenames somehow
-// 		#ifdef DEBUGMODE
-// 		file_count++;
-// 		#endif
-//     }
-//     (void) closedir (dp);
+	rc = uk_fuse_open_request(fusedev, true, dir,
+		O_RDONLY, &dir_fh);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_open_request has failed \n");
+		goto free;
+	}
 
-// 	end = _clock();
+	rc = uk_fuse_readdirplus_request(fusedev, 4096,
+		dir, dir_fh, dirents, &num_dirents);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_readdirplus_request has failed \n");
+		goto free;
+	}
 
-// 	#ifdef DEBUGMODE
-// 	assert(file_amount + 2 == file_count);
-// 	#endif
+	#ifdef DEBUGMODE
+	FILES file_count = 0;
+	#endif
+	for (size_t i = 0; i < num_dirents; i++) {
+		strcpy(str, dirents[i].name);
+		#ifdef DEBUGMODE
+		file_count++;
+		#endif
+	}
 
-//     return end - start;
-// }
+	rc = uk_fuse_release_request(fusedev, true, dir, dir_fh);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_release_request has failed \n");
+		goto free;
+	}
+
+	end = _clock();
+
+	#ifdef DEBUGMODE
+	UK_ASSERT(file_amount + 2 == file_count);
+	#endif
+
+	free(dirents);
+	return end - start;
+
+free:
+	free(dirents);
+	return 0;
+}
 
 // /*
 //     Measuring sequential write with buffer on heap, allocated with malloc.

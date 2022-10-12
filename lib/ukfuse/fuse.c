@@ -325,7 +325,7 @@ int uk_fuse_mkdir_request(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
 	if ((rc = send_and_wait(dev, req)))
 		goto free;
 
-	*nodeid = mkdir_out.entry.nodeid;
+	*nodeid = mkdir_out.entry.attr.atime;
 	*nlookup = 1; // newly created directory has nlookup = 1
 
 free:
@@ -597,7 +597,9 @@ req_remove:
  * once the request has been completely processed.
  *
  *
+ *
  * @param dev
+ * @param fh file handle from the uk_fuse_open_request
  * @return int
  */
 int uk_fuse_release_request(struct uk_fuse_dev *dev, bool is_dir,

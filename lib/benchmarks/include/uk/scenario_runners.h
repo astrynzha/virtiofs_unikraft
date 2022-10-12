@@ -13,7 +13,7 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			 size_t arr_size, int measurements);
 
 
-// FILE *create_file_of_size(const char *filename, BYTES bytes);
+FILE *create_file_of_size(const char *filename, BYTES bytes);
 
 // void list_dir_runner(FILES *amount_arr, size_t arr_size, int measurements);
 
