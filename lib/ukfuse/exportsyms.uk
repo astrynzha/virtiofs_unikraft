@@ -1,20 +1,20 @@
 # fuse.c
-uk_fuse_setupmapping
-uk_fuse_lseek_request
-uk_fuse_readdirplus_request
-uk_fuse_mkdir_request
-uk_fuse_forget_request
-uk_fuse_unlink_request
-uk_fuse_read_request
-uk_fuse_write_request
-uk_fuse_release_request
-uk_fuse_setattr_request
-uk_fuse_flush_request
-uk_fuse_create_request
-uk_fuse_open_request
-uk_fuse_lookup_request
-uk_fuse_get_attr_request
-uk_fuse_init_reqeust
+uk_fuse_request_setupmapping
+uk_fuse_request_lseek
+uk_fuse_request_readdirplus
+uk_fuse_request_mkdir
+uk_fuse_request_forget
+uk_fuse_request_unlink
+uk_fuse_request_read
+uk_fuse_request_write
+uk_fuse_request_release
+uk_fuse_request_setattr
+uk_fuse_request_flush
+uk_fuse_request_create
+uk_fuse_request_open
+uk_fuse_request_lookup
+uk_fuse_request_get_attr
+uk_fuse_reqeust_init
 test_method
 
 # fusereq.c

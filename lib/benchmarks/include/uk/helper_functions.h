@@ -23,12 +23,12 @@ typedef unsigned long long BYTES;
 void init_filenames(FILES amount, int max_filename_length, char *file_names);
 
 
-// #define KB(n) ((BYTES) (n)*1024)
-// #define MB(n) ((BYTES) ((n) * KB(1024)))
-// #define GB(n) ((BYTES) ((n) * MB(1024)))
-// #define B_TO_KB(n) ((BYTES) ((n) / 1024))
-// #define B_TO_MB(n) ((BYTES) ((n) / 1024 / 1024))
-// #define B_TO_GB(n) ((BYTES) ((n) / 1024 / 1024 / 1024))
+#define KB(n) ((BYTES) (n)*1024)
+#define MB(n) ((BYTES) ((n) * KB(1024)))
+#define GB(n) ((BYTES) ((n) * MB(1024)))
+#define B_TO_KB(n) ((BYTES) ((n) / 1024))
+#define B_TO_MB(n) ((BYTES) ((n) / 1024 / 1024))
+#define B_TO_GB(n) ((BYTES) ((n) / 1024 / 1024 / 1024))
 
 
 // BYTES get_file_size(FILE *file);

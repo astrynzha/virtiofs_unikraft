@@ -48,39 +48,40 @@ void bench_test(void)
 	DEBUG_PRINT("Running on %s\n", platform);
 	DEBUG_PRINT("__________________________\n");
 
-	// create_file_of_size("data_100M", MB(100));
-
-	int max_pow = 17;
-	FILES amount[max_pow];
-	printf("amount\n");
-	for (int i = 0; i < max_pow; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
-		amount[i] = bpow(2, i + 1);
-		printf("%lu\n", amount[i]);
-	}
 
 	trans = uk_fusedev_trans_get_default();
 	dev = uk_fusedev_connect(trans, "myfs", NULL);
 
-	if ((rc = uk_fuse_init_reqeust(dev))) {
+	if ((rc = uk_fuse_reqeust_init(dev))) {
 		uk_pr_err("uk_fuse_init has failed \n");
 		return;
 	}
 
+	// create_file_of_size("data_100M", MB(100));
 
-	// create_files_runner(dev, amount, 17, 10);
-	remove_files_runner(dev, amount, 17, 10);
-	// list_dir_runner(amount, 17, 10);
-
-	// int max_pow2 = 27;
-	// BYTES buffer_sizes[max_pow2-3];
-	// printf("buffer sizes\n");
-	// for (int i = 0; i < max_pow2-3; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
-	// 	buffer_sizes[i] = bpow(2, i+4);
-	// 	printf("%llu\n", buffer_sizes[i]);
+	// int max_pow = 17;
+	// FILES amount[max_pow];
+	// printf("amount\n");
+	// for (int i = 0; i < max_pow; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
+	// 	amount[i] = bpow(2, i + 1);
+	// 	printf("%lu\n", amount[i]);
 	// }
 
 
-	// write_seq_runner(MB(100), buffer_sizes, max_pow2-3, 10);
+	// create_files_runner(dev, amount, 17, 10);
+	// remove_files_runner(dev, amount, 17, 10);
+	// list_dir_runner(dev, amount, 17, 10);
+
+	int max_pow2 = 27;
+	BYTES buffer_sizes[max_pow2-3];
+	printf("buffer sizes\n");
+	for (int i = 0; i < max_pow2-3; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
+		buffer_sizes[i] = bpow(2, i+4);
+		printf("%llu\n", buffer_sizes[i]);
+	}
+
+
+	write_seq_runner(dev, MB(100), buffer_sizes, max_pow2-3, 10);
 	// write_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 
 	// read_seq_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, 10);

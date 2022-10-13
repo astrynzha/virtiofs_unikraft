@@ -21,7 +21,7 @@ static inline int uk_vf_write_dax(struct uk_vfdev *vfdev, uint64_t nodeid,
 	UK_ASSERT(vfdev);
 	UK_ASSERT(vfdev->fuse_dev);
 
-	rc = uk_fuse_setupmapping(vfdev->fuse_dev, nodeid, fh, off, len,
+	rc = uk_fuse_request_setupmapping(vfdev->fuse_dev, nodeid, fh, off, len,
 		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
 	if (rc) {
 		uk_pr_err("%s: failed setting up a mapping\n", __func__);
@@ -42,7 +42,7 @@ static inline int uk_vf_read_dax(struct uk_vfdev *vfdev, uint64_t nodeid,
 	UK_ASSERT(vfdev);
 	UK_ASSERT(vfdev->fuse_dev);
 
-	rc = uk_fuse_setupmapping(vfdev->fuse_dev, nodeid, fh, off,
+	rc = uk_fuse_request_setupmapping(vfdev->fuse_dev, nodeid, fh, off,
 		len, FUSE_SETUPMAPPING_FLAG_READ, 0);
 	if (rc) {
 		uk_pr_err("%s: failed setting up a mapping\n", __func__);

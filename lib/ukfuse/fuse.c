@@ -70,7 +70,7 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
-int uk_fuse_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			 uint64_t foffset, uint64_t len, uint64_t flags,
 			 uint64_t moffset)
 {
@@ -116,7 +116,7 @@ free:
  * As far as I understand it, this is used for hole detection and not for
  * repositioning the file offset within an open file descriptor.
  * (Reading/writing from an offset is done by indicating @p file_off in
- * uk_fuse_read_request()/uk_fuse_write_request().
+ * uk_fuse_request_read()/uk_fuse_request_write().
  *
  * @param dev
  * @param nodeid
@@ -127,7 +127,7 @@ free:
  * location as measured in bytes from the beginning of the file is returned
  * @return int
  */
-int uk_fuse_lseek_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+int uk_fuse_request_lseek(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			  uint64_t offset, uint32_t whence,
 			  off_t *offset_out)
 {
@@ -180,7 +180,7 @@ exit:
  * in @p dirents
  * @return int
  */
-int uk_fuse_readdirplus_request(struct uk_fuse_dev *dev, uint64_t buff_len,
+int uk_fuse_request_readdirplus(struct uk_fuse_dev *dev, uint64_t buff_len,
 				uint64_t nodeid, uint64_t fh,
 				struct fuse_dirent *dirents,
 				size_t *num_dirents)
@@ -284,7 +284,7 @@ free:
  * @param[out] nlookup
  * @return int
  */
-int uk_fuse_mkdir_request(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
+int uk_fuse_request_mkdir(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
 			  const char *dir_name, uint32_t mode,
 			  uint64_t *nodeid, uint64_t *nlookup)
 {
@@ -325,7 +325,7 @@ int uk_fuse_mkdir_request(struct uk_fuse_dev *dev, uint64_t parent_nodeid,
 	if ((rc = send_and_wait(dev, req)))
 		goto free;
 
-	*nodeid = mkdir_out.entry.attr.atime;
+	*nodeid = mkdir_out.entry.nodeid;
 	*nlookup = 1; // newly created directory has nlookup = 1
 
 free:
@@ -333,7 +333,7 @@ free:
 	return rc;
 }
 
-int uk_fuse_forget_request(struct uk_fuse_dev *dev, uint64_t nodeid,
+int uk_fuse_request_forget(struct uk_fuse_dev *dev, uint64_t nodeid,
 			   uint64_t nlookup)
 {
 	int rc = 0;
@@ -373,7 +373,7 @@ free:
  * @param nlookup
  * @return int
  */
-int uk_fuse_unlink_request(struct uk_fuse_dev *dev, const char *filename,
+int uk_fuse_request_unlink(struct uk_fuse_dev *dev, const char *filename,
 			   bool is_dir, uint64_t nodeid, uint64_t nlookup,
 			   uint64_t parent_nodeid)
 {
@@ -407,7 +407,7 @@ int uk_fuse_unlink_request(struct uk_fuse_dev *dev, const char *filename,
 	if ((rc = send_and_wait(dev, req)))
 		goto free;
 
-	uk_fuse_forget_request(dev, nodeid, nlookup);
+	uk_fuse_request_forget(dev, nodeid, nlookup);
 
 free:
 	uk_fusedev_req_remove(dev, req);
@@ -426,7 +426,7 @@ free:
  * @param[out] bytes_transferred how many bytes have been read
  * @return int
  */
-int uk_fuse_read_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+int uk_fuse_request_read(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			 uint64_t file_off, uint32_t length,
 			 void *out_buf, uint32_t *bytes_transferred)
 {
@@ -527,7 +527,7 @@ req_remove:
  * by this function call
  * @return int
  */
-int uk_fuse_write_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
+int uk_fuse_request_write(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			  const void *in_buf, uint32_t length, uint64_t off,
 			  uint32_t *bytes_transferred)
 {
@@ -599,10 +599,10 @@ req_remove:
  *
  *
  * @param dev
- * @param fh file handle from the uk_fuse_open_request
+ * @param fh file handle from the uk_fuse_request_open
  * @return int
  */
-int uk_fuse_release_request(struct uk_fuse_dev *dev, bool is_dir,
+int uk_fuse_request_release(struct uk_fuse_dev *dev, bool is_dir,
 			    uint64_t nodeid, uint64_t fh)
 {
 	int rc = 0;
@@ -641,7 +641,7 @@ free:
 }
 
 
-int uk_fuse_setattr_request(struct uk_fuse_dev *dev, uint64_t nodeid,
+int uk_fuse_request_setattr(struct uk_fuse_dev *dev, uint64_t nodeid,
 			    bool is_dir, uint64_t fh, uint32_t mode,
 			    uint64_t last_access_time, uint64_t last_write_time,
 			    uint64_t change_time)
@@ -726,7 +726,7 @@ free:
  * @param nodeid
  * @return int
  */
-int uk_fuse_flush_request(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh)
+int uk_fuse_request_flush(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh)
 {
 	int rc = 0;
 	FUSE_FLUSH_IN flush_in = {0};
@@ -765,9 +765,9 @@ free:
 /* TODOFS: add uk_fuse_dev fid? */
 /* TODOFS: how to set flags and mode? Probably comes from the VFS */
 /**
- * @brief creates a file.
+ * @brief creates and opens a file.
  *
- * See uk_fuse_mkdir_request for creating a directory.
+ * See uk_fuse_request_mkdir for creating a directory.
  *
  * Fails if a file with the given pathname already exists (because of O_EXCL).
  *
@@ -783,7 +783,7 @@ free:
  * @param[out] nlookup
  * @return int
  */
-int uk_fuse_create_request(struct uk_fuse_dev *dev, uint64_t parent,
+int uk_fuse_request_create(struct uk_fuse_dev *dev, uint64_t parent,
 			   const char *file_name, uint32_t flags,
 			   uint32_t mode, uint64_t *nodeid, uint64_t *fh,
 			   uint64_t *nlookup)
@@ -861,7 +861,7 @@ free:
  * @param[out] fh file handle
  * @return int
  */
-int uk_fuse_open_request(struct uk_fuse_dev *dev, bool is_dir,
+int uk_fuse_request_open(struct uk_fuse_dev *dev, bool is_dir,
 			 uint64_t nodeid, uint32_t flags, uint64_t *fh)
 {
 	int rc = 0;
@@ -901,7 +901,7 @@ free:
 	return rc;
 }
 
-int uk_fuse_lookup_request(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
+int uk_fuse_request_lookup(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 		   const char *filename, FUSE_LOOKUP_OUT *lookup_out)
 {
 	int rc = 0;
@@ -965,7 +965,7 @@ free:
  * @param[out] fuse_attr
  * @return int
  */
-int uk_fuse_get_attr_request(struct uk_fuse_dev *dev, uint64_t nodeid,
+int uk_fuse_request_get_attr(struct uk_fuse_dev *dev, uint64_t nodeid,
 		     uint64_t file_handle, struct fuse_attr *attr)
 {
 	int rc = 0;
@@ -1007,7 +1007,7 @@ free:
 	return rc;
 }
 
-int uk_fuse_init_reqeust(struct uk_fuse_dev *dev)
+int uk_fuse_reqeust_init(struct uk_fuse_dev *dev)
 {
 	struct uk_fuse_req *req;
 	FUSE_INIT_IN init_in = {0};
@@ -1069,11 +1069,11 @@ int test_method() {
 	uint32_t bytes_transferred;
 	char *read_message;
 	size_t read_size;
-/* uk_fuse_readdirplus_request */
+/* uk_fuse_request_readdirplus */
 	fuse_file_context rootdir = {0};
 	struct fuse_dirent dirents[10];
 	size_t num_dirents;
-/* uk_fuse_lseek_request */
+/* uk_fuse_request_lseek */
 	char *read_message_lseek;
 	size_t read_size_lseek;
 	off_t lseek_off;
@@ -1096,17 +1096,17 @@ int test_method() {
 	dev = uk_fusedev_connect(trans, "myfs", NULL);
 
 
-	if ((rc = uk_fuse_init_reqeust(dev))) {
+	if ((rc = uk_fuse_reqeust_init(dev))) {
 		uk_pr_err("uk_fuse_init has failed \n");
 		goto free;
 	}
 
-	if ((rc = uk_fuse_get_attr_request(dev, 1, -1, &attr))) {
+	if ((rc = uk_fuse_request_get_attr(dev, 1, -1, &attr))) {
 		uk_pr_err("uk_fuse_get_attr has failed \n");
 		goto free;
 	}
 
-	// if ((rc = uk_fuse_lookup_request(dev, 1,
+	// if ((rc = uk_fuse_request_lookup(dev, 1,
 	//      "dogcat", &lookup_out))) {
 	// 	uk_pr_err("uk_fuse_lookup has failed \n");
 	// 	goto free;
@@ -1115,7 +1115,7 @@ int test_method() {
 	// dev->owner_uid = lookup_out.entry.attr.uid;
 	// dev->owner_gid = lookup_out.entry.attr.gid;
 
-	if ((rc = uk_fuse_create_request(dev, fc.parent_nodeid,
+	if ((rc = uk_fuse_request_create(dev, fc.parent_nodeid,
 			fc.name, fc.flags, fc.mode,
 			&fc.nodeid, &fc.fh,
 			&fc.nlookup))) {
@@ -1123,42 +1123,42 @@ int test_method() {
 		goto free;
 	}
 
-	// if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
-	// 	uk_pr_err("uk_fuse_flush_request has failed \n");
+	// if ((rc = uk_fuse_request_flush(dev, ffc.nodeid, ffc.fh))) {
+	// 	uk_pr_err("uk_fuse_request_flush has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_open_request(dev, false, entry.nodeid,
+	// if ((rc = uk_fuse_request_open(dev, false, entry.nodeid,
 	// 		       O_RDONLY, &fh))) {
-	// 	uk_pr_err("uk_fuse_open_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_open has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_read_request(dev, ffc.nodeid, ffc.fh, 0,
+	// if ((rc = uk_fuse_request_read(dev, ffc.nodeid, ffc.fh, 0,
 	// 		       recv_size, recv_message,
 	// 		       &bytes_transferred))) {
-	// 	uk_pr_err("uk_fuse_read_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_read has failed \n");
 	// 	goto free;
 	// }
 
-	if ((rc = uk_fuse_write_request(dev, fc.nodeid, fc.fh,
+	if ((rc = uk_fuse_request_write(dev, fc.nodeid, fc.fh,
 		send_message, (uint32_t) strlen(send_message)+1,
 		0, &bytes_transferred))) {
-		uk_pr_err("uk_fuse_write_request has failed \n");
+		uk_pr_err("uk_fuse_request_write has failed \n");
 		goto free;
 	}
 
-	if ((rc = uk_fuse_flush_request(dev, fc.nodeid, fc.fh))) {
-		uk_pr_err("uk_fuse_flush_request has failed \n");
+	if ((rc = uk_fuse_request_flush(dev, fc.nodeid, fc.fh))) {
+		uk_pr_err("uk_fuse_request_flush has failed \n");
 		goto free;
 	}
 
 	bytes_transferred = 0;
 
-	if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 3,
+	if ((rc = uk_fuse_request_read(dev, fc.nodeid, fc.fh, 3,
 			       read_size, read_message,
 			       &bytes_transferred))) {
-		uk_pr_err("uk_fuse_read_request has failed \n");
+		uk_pr_err("uk_fuse_request_read has failed \n");
 		goto free;
 	}
 	uk_pr_debug("Read %" __PRIu32 " bytes: '%s'\n", bytes_transferred,
@@ -1166,38 +1166,38 @@ int test_method() {
 
 	add_fusedev(dev);
 
-	// if ((rc = uk_fuse_lseek_request(dev, fc.nodeid, fc.fh,
+	// if ((rc = uk_fuse_request_lseek(dev, fc.nodeid, fc.fh,
 	// 		3, SEEK_SET, &lseek_off))) {
-	// 	uk_pr_err("uk_fuse_read_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_read has failed \n");
 	// 	goto free;
 	// }
 
 	// bytes_transferred = 0;
-	// if ((rc = uk_fuse_read_request(dev, fc.nodeid, fc.fh, 0,
+	// if ((rc = uk_fuse_request_read(dev, fc.nodeid, fc.fh, 0,
 	// 		       read_size_lseek, read_message_lseek,
 	// 		       &bytes_transferred))) {
-	// 	uk_pr_err("uk_fuse_read_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_read has failed \n");
 	// 	goto free;
 	// }
 	// uk_pr_debug("Read %" __PRIu32 " bytes with lseek: '%s'\n",
 	// 	    bytes_transferred, read_message_lseek);
 
-	if ((rc = uk_fuse_unlink_request(dev, fc.name, false, 2, 1,
+	if ((rc = uk_fuse_request_unlink(dev, fc.name, false, 2, 1,
 		1))) {
 		uk_pr_err("uk_fuse_delete_request has failed \n");
 		goto free;
 	}
 
-	if ((rc = uk_fuse_mkdir_request(dev, 1,
+	if ((rc = uk_fuse_request_mkdir(dev, 1,
 		"Documents", 0777, &dc.nodeid, &dc.nlookup))) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		uk_pr_err("uk_fuse_request_mkdir has failed \n");
 		goto free;
 	}
 
 	// memset(&fc.file_name, 0,
 	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
 	// strcpy(fc.file_name, "document1.txt");
-	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// if ((rc = uk_fuse_request_create(dev, dc.nodeid,
 	// 	fc.file_name, fc.flags, fc.mode,
 	// 	&fc.nodeid, &fc.fh,
 	// 	&fc.nlookup))) {
@@ -1207,7 +1207,7 @@ int test_method() {
 	// memset(&fc.file_name, 0,
 	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
 	// strcpy(fc.file_name, "document2.txt");
-	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// if ((rc = uk_fuse_request_create(dev, dc.nodeid,
 	// 	fc.file_name, fc.flags, fc.mode,
 	// 	&fc.nodeid, &fc.fh,
 	// 	&fc.nlookup))) {
@@ -1217,7 +1217,7 @@ int test_method() {
 	// memset(&fc.file_name, 0,
 	// 	sizeof(fc.file_name)/sizeof(fc.file_name[0]));
 	// strcpy(fc.file_name, "document3.txt");
-	// if ((rc = uk_fuse_create_request(dev, dc.nodeid,
+	// if ((rc = uk_fuse_request_create(dev, dc.nodeid,
 	// 	fc.file_name, fc.flags, fc.mode,
 	// 	&fc.nodeid, &fc.fh,
 	// 	&fc.nlookup))) {
@@ -1225,35 +1225,35 @@ int test_method() {
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_open_request(dev, true, 2, &rootdir.fh, 0))) {
-	// 	uk_pr_err("uk_fuse_open_request has failed \n");
+	// if ((rc = uk_fuse_request_open(dev, true, 2, &rootdir.fh, 0))) {
+	// 	uk_pr_err("uk_fuse_request_open has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_readdirplus_request(dev, 500, 2, rootdir.fh,
+	// if ((rc = uk_fuse_request_readdirplus(dev, 500, 2, rootdir.fh,
 	// 	dirents, &num_dirents))) {
-	// 	uk_pr_err("uk_fuse_readdirplus_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_readdirplus has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_release_request(dev, true, 2, rootdir.fh))) {
-	// 	uk_pr_err("uk_fuse_release_request has failed\n");
+	// if ((rc = uk_fuse_request_release(dev, true, 2, rootdir.fh))) {
+	// 	uk_pr_err("uk_fuse_request_release has failed\n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_flush_request(dev, ffc.nodeid, ffc.fh))) {
-	// 	uk_pr_err("uk_fuse_flush_request has failed \n");
+	// if ((rc = uk_fuse_request_flush(dev, ffc.nodeid, ffc.fh))) {
+	// 	uk_pr_err("uk_fuse_request_flush has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_setattr_request(dev, ffc.nodeid, false, ffc.fh,
+	// if ((rc = uk_fuse_request_setattr(dev, ffc.nodeid, false, ffc.fh,
 	// 	S_IFREG | S_IRWXU | S_IRWXG | S_IROTH, 0, 0, 0))) {
-	// 	uk_pr_err("uk_fuse_setattr_request has failed \n");
+	// 	uk_pr_err("uk_fuse_request_setattr has failed \n");
 	// 	goto free;
 	// }
 
-	// if ((rc = uk_fuse_release_request(dev, false, ffc.fh, ffc.nodeid))) {
-	// 	uk_pr_err("uk_fuse_setattr_request has failed \n");
+	// if ((rc = uk_fuse_request_release(dev, false, ffc.fh, ffc.nodeid))) {
+	// 	uk_pr_err("uk_fuse_request_setattr has failed \n");
 	// 	goto free;
 	// }
 

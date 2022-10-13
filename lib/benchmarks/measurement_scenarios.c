@@ -40,11 +40,11 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		uk_pr_err("calloc has failed \n");
 		return 0;
 	}
-	rc = uk_fuse_mkdir_request(fusedev, dc.parent_nodeid,
+	rc = uk_fuse_request_mkdir(fusedev, dc.parent_nodeid,
 		dc.name, 0777, &dc.nodeid,
 		&dc.nlookup);
 	if (rc) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		uk_pr_err("uk_fuse_request_mkdir has failed \n");
 		goto free_fc;
 	}
 
@@ -65,19 +65,19 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 
 	for (FILES i = 0; i < amount; i++) {
 		file_name = file_names + i * max_filename_length;
-		rc = uk_fuse_create_request(fusedev, dc.nodeid,
+		rc = uk_fuse_request_create(fusedev, dc.nodeid,
 			file_name, O_WRONLY | O_CREAT | O_EXCL,
 			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
 			&fc[i].nodeid, &fc[i].fh,
 			&fc[i].nlookup);
 		if (rc) {
-			uk_pr_err("uk_fuse_create_request has failed \n");
+			uk_pr_err("uk_fuse_request_create has failed \n");
 			goto free_fn;
 		}
-		rc = uk_fuse_release_request(fusedev, false,
+		rc = uk_fuse_request_release(fusedev, false,
 			fc[i].nodeid, fc[i].fh);
 		if (rc) {
-			uk_pr_err("uk_fuse_release_request has failed \n");
+			uk_pr_err("uk_fuse_request_release has failed \n");
 			goto free_fn;
 		}
 	}
@@ -88,19 +88,19 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 
 	for (FILES i = 0; i < amount; i++) {
 		char *file_name = file_names + i * max_filename_length;
-		rc = uk_fuse_unlink_request(fusedev, file_name,
+		rc = uk_fuse_request_unlink(fusedev, file_name,
 			false, fc[i].nodeid,
 			fc[i].nlookup, dc.nodeid);
 		if (rc) {
-			uk_pr_err("uk_fuse_unlink_request has failed \n");
+			uk_pr_err("uk_fuse_request_unlink has failed \n");
 			start = end = 0;
 			goto free_fn;
 		}
 	}
-	rc = uk_fuse_unlink_request(fusedev, dc.name, true,
+	rc = uk_fuse_request_unlink(fusedev, dc.name, true,
 		dc.nodeid, dc.nlookup, dc.parent_nodeid);
 	if (rc) {
-		uk_pr_err("uk_fuse_unlink_request has failed \n");
+		uk_pr_err("uk_fuse_request_unlink has failed \n");
 		start = end = 0;
 		goto free_fn;
 	}
@@ -132,10 +132,10 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		uk_pr_err("calloc has failed \n");
 		return 0;
 	}
-	rc = uk_fuse_mkdir_request(fusedev, dc.parent_nodeid,
+	rc = uk_fuse_request_mkdir(fusedev, dc.parent_nodeid,
 		dc.name, 0777, &dc.nodeid, &dc.nlookup);
 	if (rc) {
-		uk_pr_err("uk_fuse_mkdir_request has failed \n");
+		uk_pr_err("uk_fuse_request_mkdir has failed \n");
 		goto free_fc;
 	}
 
@@ -154,19 +154,19 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 
 	for (FILES i = 0; i < amount; i++) {
 		file_name = file_names + i * max_file_name_length;
-		rc = uk_fuse_create_request(fusedev, dc.nodeid,
+		rc = uk_fuse_request_create(fusedev, dc.nodeid,
 			file_name, O_WRONLY | O_CREAT | O_EXCL,
 			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
 			&fc[i].nodeid, &fc[i].fh,
 			&fc[i].nlookup);
 		if (rc) {
-			uk_pr_err("uk_fuse_create_request has failed \n");
+			uk_pr_err("uk_fuse_request_create has failed \n");
 			goto free_fn;
 		}
-		rc = uk_fuse_release_request(fusedev, false,
+		rc = uk_fuse_request_release(fusedev, false,
 			fc[i].nodeid, fc[i].fh);
 		if (rc) {
-			uk_pr_err("uk_fuse_release_request has failed \n");
+			uk_pr_err("uk_fuse_request_release has failed \n");
 			goto free_fn;
 		}
 	}
@@ -181,11 +181,11 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 	start = _clock();
 	for (FILES i = 0; i < amount; i++) {
 		file_name = file_names + i * max_file_name_length;
-		rc = uk_fuse_unlink_request(fusedev, file_name,
+		rc = uk_fuse_request_unlink(fusedev, file_name,
 			false, fc[i].nodeid,
 			fc[i].nlookup, dc.nodeid);
 		if (rc) {
-			uk_pr_err("uk_fuse_unlink_request has failed \n");
+			uk_pr_err("uk_fuse_request_unlink has failed \n");
 			goto free_fn;
 		}
 		#ifdef __linux__
@@ -194,10 +194,10 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 	}
 	end = _clock();
 
-	rc = uk_fuse_unlink_request(fusedev, dc.name, true,
+	rc = uk_fuse_request_unlink(fusedev, dc.name, true,
 		dc.nodeid, dc.nlookup, dc.parent_nodeid);
 	if (rc) {
-		uk_pr_err("uk_fuse_unlink_request has failed \n");
+		uk_pr_err("uk_fuse_request_unlink has failed \n");
 		goto free_fn;
 	}
 
@@ -222,7 +222,6 @@ free_fc:
  * specifies how many files are in the directory.
  *
  * Necessary files are to be created and deleted by the caller
- * Assumes that @parent is opened
  *
  * @param fusedev
  * @param file_amount
@@ -245,17 +244,17 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 
 	start = _clock();
 
-	rc = uk_fuse_open_request(fusedev, true, dir,
+	rc = uk_fuse_request_open(fusedev, true, dir,
 		O_RDONLY, &dir_fh);
 	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_open_request has failed \n");
+		uk_pr_err("uk_fuse_request_open has failed \n");
 		goto free;
 	}
 
-	rc = uk_fuse_readdirplus_request(fusedev, 4096,
+	rc = uk_fuse_request_readdirplus(fusedev, 4096,
 		dir, dir_fh, dirents, &num_dirents);
 	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_readdirplus_request has failed \n");
+		uk_pr_err("uk_fuse_request_readdirplus has failed \n");
 		goto free;
 	}
 
@@ -269,9 +268,9 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 		#endif
 	}
 
-	rc = uk_fuse_release_request(fusedev, true, dir, dir_fh);
+	rc = uk_fuse_request_release(fusedev, true, dir, dir_fh);
 	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_release_request has failed \n");
+		uk_pr_err("uk_fuse_request_release has failed \n");
 		goto free;
 	}
 
@@ -289,61 +288,85 @@ free:
 	return 0;
 }
 
-// /*
-//     Measuring sequential write with buffer on heap, allocated with malloc.
-// 	Buffer size can be set through 'buffer_size'.
+/*
+	Measuring sequential write with buffer on heap, allocated with malloc.
+	Buffer size can be set through 'buffer_size'.
 
-//     Write file is created and deleted by the function.
-// */
-// __nanosec write_seq(BYTES bytes, BYTES buffer_size) {
-// 	FILE *file;
+	Write file is created and deleted by the function.
+*/
+__nanosec write_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
+		    uint64_t dir)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "write_data", .mode = 0777,
+		.flags = O_WRONLY | O_CREAT | O_EXCL,
+		.parent_nodeid = dir,
+	};
+	uint32_t bytes_transferred = 0;
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, 1, buffer_size);
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
 
-// 	char *buffer = malloc(buffer_size);
-// 	if (buffer == NULL) {
-// 		fprintf(stderr, "Error! Memory not allocated.\n");
-// 		exit(0);
-// 	}
-// 	BYTES iterations = bytes / buffer_size;
-// 	BYTES rest = bytes % buffer_size;
+	rc = uk_fuse_request_create(fusedev, file.parent_nodeid,
+		file.name, file.flags, file.mode,
+		&file.nodeid, &file.fh, &file.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_create has failed \n");
+		goto free;
+	}
 
-// 	file = fopen("write_data", "w");
-// 	#ifdef __linux__
-// 	int fd = fileno(file);
-// 	#endif
-// 	if (file == NULL) {
-// 		fprintf(stderr, "Error opening file 'write_data'.\n");
-// 		exit(EXIT_FAILURE);
-// 	}
+	__nanosec start, end;
+	start = _clock();
 
-// 	__nanosec start, end;
-// 	start = _clock();
+	for (BYTES i = 0; i < iterations; i++) {
+		rc = uk_fuse_request_write(fusedev, file.nodeid,
+			file.fh, buffer, buffer_size,
+			buffer_size*i, &bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_write has failed \n");
+			goto free;
+		}
+	}
+	if (rest > 0) {
+		rc = uk_fuse_request_write(fusedev, file.nodeid,
+			file.fh, buffer, rest,
+			buffer_size*iterations, &bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_write has failed \n");
+			goto free;
+		}
+	}
+	uk_fuse_request_flush(fusedev, file.nodeid, file.fh);
 
-// 	for (BYTES i = 0; i < iterations; i++) {
-// 		fwrite(buffer, buffer_size, 1, file);
-// 		#ifdef __linux__
-// 		fsync(fd);
-// 		#endif
-// 	}
-// 	if (rest > 0) {
-// 		if (rest != fwrite(buffer, sizeof(char), rest, file)) {
-// 			fprintf(stderr, "Failed to write the rest of the file\n");
-// 		}
-// 		#ifdef __linux__
-// 		fsync(fd);
-// 		#endif
-// 	}
+	end = _clock();
 
-// 	end = _clock();
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		goto free;
+	}
 
-// 	fclose(file);
-// 	free(buffer);
+	rc = uk_fuse_request_unlink(fusedev, file.name, false,
+		file.nodeid, file.nlookup, file.parent_nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_unlink has failed \n");
+		goto free;
+	}
 
-// 	if (!remove("write_data") == 0) {
-// 		fprintf(stderr, "Failed to remove \"write_data\" file\n");
-// 	}
+	free(buffer);
+	return end - start;
 
-//     return end - start;
-// }
+free:
+	free(buffer);
+	return 0;
+}
 
 // /*
 //     Measuring random access write (non-sequential) of an existing file, passed to the function.
