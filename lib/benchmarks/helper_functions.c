@@ -1,5 +1,10 @@
 #include "uk/helper_functions.h"
+#include "uk/fuse.h"
+#include "uk/fusedev_core.h"
+#include "uk/print.h"
+#include "uk/vfdev.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,32 +50,56 @@
 // 	free(buffer);
 // }
 
-// /*
-//     Writes `bytes` bytes with a 1KB buffer.
-// */
-// void write_bytes(FILE *file, BYTES bytes, BYTES buffer_size) {
-// 	char *buffer = malloc(buffer_size);
-// 	if (buffer == NULL) {
-// 		fprintf(stderr, "Error! Memory not allocated. At %s, line %d. \n", __FILE__, __LINE__);
-// 		exit(EXIT_FAILURE);
-// 	}
+/**
+ * @brief writes #(@p bytes) bytes with a buffer of @p buffer_size.
 
-// 	while (bytes > buffer_size) {
-// 		if (buffer_size != fwrite(buffer, 1, (size_t) buffer_size, file)) {
-// 			puts("Failed to write\n");
-// 		}
-// 		bytes -= buffer_size;
-// 	}
+ *
+ * @param fusedev
+ * @param nodeid
+ * @param fh
+ * @param bytes
+ * @param buffer_size
+ */
+inline void write_bytes_fuse(struct uk_fuse_dev *fusedev,
+	uint64_t nodeid, uint64_t fh, BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	int iteration = 0;
+	uint32_t bytes_transferred = 0;
+	char *buffer = malloc(buffer_size);
+	if (!buffer) {
+		uk_pr_err("malloc failed\n");
+		return;
+	}
 
-//     BYTES rest = bytes % buffer_size;
-//     if (rest > 0) {
-//         if (rest != fwrite(buffer, sizeof(char), rest, file)) {
-//             puts("Failed to write");
-//         }
-//     }
+	while (bytes > buffer_size) {
+		rc = uk_fuse_request_write(fusedev, nodeid, fh, buffer,
+			buffer_size, buffer_size * iteration++,
+			&bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_write has failed\n");
+		}
+		bytes -= buffer_size;
+	}
 
-// 	free(buffer);
-// }
+	BYTES rest = bytes % buffer_size;
+	if (rest > 0) {
+		rc = uk_fuse_request_write(fusedev, nodeid, fh, buffer,
+			rest, buffer_size * iteration,
+			&bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_write has failed\n");
+		}
+	}
+
+	free(buffer);
+}
+
+inline void write_bytes_dax(struct uk_fuse_dev, struct uk_vfdev, uint64_t nodeid,
+	uint64_t fh, BYTES bytes, BYTES buffer_size)
+{
+	int rc
+}
 
 /*
     Initializing file names of kind: "file_0", "file_1", "file_2" and so on

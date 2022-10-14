@@ -77,7 +77,7 @@ int uk_fuse_request_open(struct uk_fuse_dev *dev, bool is_dir,
 			 uint64_t nodeid, uint32_t flags, uint64_t *fh);
 
 int uk_fuse_request_lookup(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
-		   const char *filename, FUSE_LOOKUP_OUT *lookup_out);
+		   const char *filename, uint64_t *nodeid);
 
 int uk_fuse_request_get_attr(struct uk_fuse_dev *dev, uint64_t nodeid,
 		     uint64_t file_handle, struct fuse_attr *attr);

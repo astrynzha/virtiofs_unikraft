@@ -13,6 +13,9 @@
 #include "uk/fusedev_trans.h"
 #include "uk/fusedev_core.h"
 #include "uk/fuse.h"
+/* virtiofs */
+#include "uk/vfdev.h"
+#include "uk/vf_bench_tests.h"
 
 /* returns @p base to the power of @p exp */
 BYTES bpow(BYTES base, BYTES exp)
@@ -36,6 +39,7 @@ void bench_test(void)
 	int rc = 0;
 	struct uk_fusedev_trans *trans;
 	struct uk_fuse_dev *dev;
+	struct uk_vfdev vfdev;
 
 	#ifdef __linux__
 	char platform[6] = "Linux";
@@ -56,6 +60,8 @@ void bench_test(void)
 		uk_pr_err("uk_fuse_init has failed \n");
 		return;
 	}
+
+	vfdev = uk_vf_connect();
 
 	// create_file_of_size("data_100M", MB(100));
 
@@ -81,9 +87,11 @@ void bench_test(void)
 	}
 
 
-	write_seq_runner(dev, MB(100), buffer_sizes, max_pow2-3, 10);
+	// write_seq_runner(dev, &vfdev, false, MB(100), buffer_sizes, max_pow2-3, 10);
+	// write_seq_runner(dev, &vfdev, true, MB(100), buffer_sizes, max_pow2-3, 10);
 	// write_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 
-	// read_seq_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, 10);
+	read_seq_runner(dev, &vfdev, true, MB(100),
+		buffer_sizes, max_pow2-3, 10);
 	// read_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 }

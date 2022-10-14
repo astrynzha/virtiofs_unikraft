@@ -19,6 +19,8 @@
 /* ukfuse */
 #include "uk/fusedev_core.h"
 #include "uk/fuse.h"
+/* virtiofs */
+#include "uk/vfdev.h"
 
 /*
     Measure removing `amount` files.
@@ -294,7 +296,7 @@ free:
 
 	Write file is created and deleted by the function.
 */
-__nanosec write_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
+__nanosec write_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
 		    uint64_t dir)
 {
 	int rc = 0;
@@ -328,7 +330,7 @@ __nanosec write_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
 		rc = uk_fuse_request_write(fusedev, file.nodeid,
 			file.fh, buffer, buffer_size,
 			buffer_size*i, &bytes_transferred);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_write has failed \n");
 			goto free;
 		}
@@ -337,7 +339,7 @@ __nanosec write_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
 		rc = uk_fuse_request_write(fusedev, file.nodeid,
 			file.fh, buffer, rest,
 			buffer_size*iterations, &bytes_transferred);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_write has failed \n");
 			goto free;
 		}
@@ -368,84 +370,299 @@ free:
 	return 0;
 }
 
-// /*
-//     Measuring random access write (non-sequential) of an existing file, passed to the function.
-//     Seed has to be set by the caller.
+/**
+ * @brief
+ *
+ * Requires a file called "100M_file" of size 100MB in the root directory of
+ * the shared file system.
+ *
+ * @param fusedev
+ * @param bytes
+ * @param buffer_size
+ * @param dir
+ * @return __nanosec
+ */
+__nanosec write_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+			BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1,
+	};
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, '1', buffer_size);
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
+	uint64_t dax_addr = vfdev->dax_addr;
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, MB(100),
+		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		goto free;
+	}
+
+	__nanosec start, end;
+	start = _clock();
 
 
-//     The function:
-//     1. Randomly determines a file position from range [0, EOF - upper_write_limit).
-//     2. Writes a random amount of bytes, sampled from range [lower_write_limit, upper_write_limit].
-//     3. Repeats steps 1-2 until the 'remaining_bytes' amount of bytes is written.
-// */
-// __nanosec write_randomly(FILE *file, BYTES remaining_bytes, BYTES buffer_size, BYTES lower_write_limit, BYTES upper_write_limit) {
-// 	#ifdef __linux__
-// 	int fd = fileno(file);
-// 	#endif
-// 	BYTES size = get_file_size(file);
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(((char *) dax_addr) + buffer_size*i, buffer,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(((char *) dax_addr) + buffer_size*iterations, buffer,
+			rest);
+	}
 
-// 	__nanosec start, end;
+	rc = uk_fuse_request_flush(fusedev, file.nodeid, file.fh);
 
-// 	start = _clock();
+	end = _clock();
 
-// 	long int position;
-// 	while (remaining_bytes > upper_write_limit) {
-// 		position = (long int) sample_in_range(0ULL, size - upper_write_limit);
-// 		fseek(file, position, SEEK_SET);
-// 		BYTES bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
-// 		write_bytes(file, bytes_to_write, buffer_size);
-// 		#ifdef __linux__
-// 		fsync(fd);
-// 		#endif
-// 		remaining_bytes -= bytes_to_write;
-// 	}
-// 	position = (long int) sample_in_range(0, size - upper_write_limit);
-// 	fseek(file, position, SEEK_SET);
-// 	write_bytes(file, remaining_bytes, buffer_size);
-// 	#ifdef __linux__
-// 	fsync(fd);
-// 	#endif
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		goto free;
+	}
 
-// 	end = _clock();
+	free(buffer);
+	return end - start;
 
-//     return end - start;
-// }
+free:
+	free(buffer);
+	return 0;
+}
 
-// /*
-//     Measure sequential read of `bytes` bytes.
-// */
-// __nanosec read_seq(FILE *file, BYTES bytes, BYTES buffer_size) {
-// 	BYTES iterations = bytes / buffer_size;
-//     BYTES rest = bytes % buffer_size;
-// 	char *buffer = malloc(buffer_size);
-// 	if (buffer == NULL) {
-// 		fprintf(stderr, "Error! Memory not allocated. At %s, line %d. \n", __FILE__, __LINE__);
-// 		exit(EXIT_FAILURE);
-// 	}
+/*
+	Measuring random access write (non-sequential) of an existing file,
+	passed to the function.
+	Seed has to be set by the caller.
 
-//     // measuring sequential read
 
-// 	__nanosec start, end;
+	The function:
+	1. Randomly determines a file position from range
+	[0, EOF - upper_write_limit).
+	2. Writes a random amount of bytes, sampled from range
+	[lower_write_limit, upper_write_limit].
+	3. Repeats steps 1-2 until the 'remaining_bytes' amount of bytes
+	is written.
+*/
+__nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
+			      BYTES remaining_bytes, BYTES buffer_size,
+			      BYTES lower_write_limit, BYTES upper_write_limit)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1,
+	};
 
-// 	start = _clock();
+	BYTES size = get_file_size(file);
 
-// 	for (BYTES i = 0; i < iterations; i++) {
-// 		if (buffer_size != fread(buffer, sizeof(char), buffer_size, file)) {
-// 			fprintf(stderr, "Failed to read on iteration #%llu\n", i);
-// 		}
-// 		// system("sync; echo 1 > /proc/sys/vm/drop_caches");
-// 	}
-// 	if (rest > 0) {
-// 		if (rest != fread(buffer, sizeof(char), rest, file)) {
-// 			fprintf(stderr, "Failed to read the rest of the file\n");
-// 		}
-// 	}
+	__nanosec start, end;
 
-// 	end = _clock();
+	start = _clock();
 
-// 	free(buffer);
-//     return end - start;
-// }
+	long int position;
+	while (remaining_bytes > upper_write_limit) {
+		position = (long int) sample_in_range(0ULL, size - upper_write_limit);
+		fseek(file, position, SEEK_SET);
+		BYTES bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
+		write_bytes_fuse(file, bytes_to_write, buffer_size);
+		#ifdef __linux__
+		fsync(fd);
+		#endif
+		remaining_bytes -= bytes_to_write;
+	}
+	position = (long int) sample_in_range(0, size - upper_write_limit);
+	fseek(file, position, SEEK_SET);
+	write_bytes(file, remaining_bytes, buffer_size);
+	#ifdef __linux__
+	fsync(fd);
+	#endif
+
+	end = _clock();
+
+    return end - start;
+}
+
+/*
+    Measure sequential read of `bytes` bytes.
+*/
+__nanosec read_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1
+	};
+	uint32_t bytes_transferred = 0;
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, '1', buffer_size);
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free;
+	}
+
+	__nanosec start, end;
+
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		rc = uk_fuse_request_read(fusedev, file.nodeid,
+			file.fh, buffer_size*i, buffer_size,
+			buffer, &bytes_transferred);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_read has failed \n");
+			goto free;
+		}
+	}
+	if (rest > 0) {
+		rc = uk_fuse_request_read(fusedev, file.nodeid,
+			file.fh, buffer_size*iterations, rest,
+			buffer, &bytes_transferred);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_read has failed \n");
+			goto free;
+		}
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		goto free;
+	}
+
+	free(buffer);
+	return end - start;
+
+free:
+	free(buffer);
+	return 0;
+}
+
+__nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+		       BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1
+	};
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, '1', buffer_size);
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
+	uint64_t dax_addr = vfdev->dax_addr;
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, MB(100),
+		FUSE_SETUPMAPPING_FLAG_READ, 0);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		goto free;
+	}
+
+	__nanosec start, end;
+
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * i,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * iterations,
+			rest);
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		goto free;
+	}
+
+	free(buffer);
+	return end - start;
+
+free:
+	free(buffer);
+	return 0;
+}
 
 
 // /*

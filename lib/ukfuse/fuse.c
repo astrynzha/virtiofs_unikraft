@@ -70,6 +70,30 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief
+ *
+ * @param dev
+ * @param nodeid
+ * @param fh
+ * @param fsync_flags use FUSE_FSYNC_FDATASYNC if only data is to be synced
+ * (no metadata). Otherwise set fsync_flags to 0.
+ * @return int
+ */
+int uk_fuse_request_fsync(struct uk_fuse_dev *dev, bool is_dir,
+			  uint64_t nodeid, uint64_t fh, uint32_t fsync_flags)
+{
+	int rc = 0;
+	FUSE_FSYNC_IN fsync_in = {0};
+	FUSE_FSYNC_OUT fsync_out = {0};
+	
+
+
+
+
+
+}
+
 int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			 uint64_t foffset, uint64_t len, uint64_t flags,
 			 uint64_t moffset)
@@ -902,16 +926,16 @@ free:
 }
 
 int uk_fuse_request_lookup(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
-		   const char *filename, FUSE_LOOKUP_OUT *lookup_out)
+		   const char *filename, uint64_t *nodeid)
 {
 	int rc = 0;
 	FUSE_LOOKUP_IN lookup_in = {0};
+	FUSE_LOOKUP_OUT lookup_out = {0};
 	struct uk_fuse_req *req;
 	struct fuse_attr *attr;
 
 	UK_ASSERT(dev);
 	UK_ASSERT(filename);
-	UK_ASSERT(lookup_out);
 
 	FUSE_HEADER_INIT(&lookup_in.hdr, FUSE_LOOKUP,
 		 dir_nodeid, strlen(filename) + 1);
@@ -925,17 +949,19 @@ int uk_fuse_request_lookup(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 	/* TODOFS: macro this */
 	req->in_buffer = &lookup_in;
 	req->in_buffer_size = sizeof(lookup_in);
-	req->out_buffer = lookup_out;
-	req->out_buffer_size = sizeof(*lookup_out);
+	req->out_buffer = &lookup_out;
+	req->out_buffer_size = sizeof(lookup_out);
 
 	if ((rc = send_and_wait(dev, req)))
 		goto free;
 
 
-	attr = &lookup_out->entry.attr;
+	attr = &lookup_out.entry.attr;
 	uk_pr_debug("FUSE_LOOKUP: attr = {nodeid=%" __PRIu64 " ino=%" __PRIu64
 		" size=%" __PRIu64 "}\n",
-		lookup_out->entry.nodeid, attr->ino, attr->size);
+		lookup_out.entry.nodeid, attr->ino, attr->size);
+
+	*nodeid = lookup_out.entry.nodeid;
 
 	// TODOFS: increment nlookup
 

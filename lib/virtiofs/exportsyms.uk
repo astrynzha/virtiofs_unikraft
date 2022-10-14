@@ -3,6 +3,7 @@ uk_vfdev_trans_register
 uk_vfdev_trans_get_default
 
 # vf_vnops.c
+uk_vf_connect
 # TODOFS: remove
 add_vdev_for_dax
 vf_test_method

@@ -1,4 +1,5 @@
 #include "uk/vf_vnops.h"
+#include "uk/vf_bench_tests.h"
 #include "uk/assert.h"
 #include "uk/fusedev_core.h"
 #include "uk/print.h"
@@ -71,7 +72,7 @@ static inline int uk_vf_read_fuse(struct uk_vfdev *vfdev, uint64_t nodeid,
 	return 0;
 }
 
-static int uk_vf_write(struct uk_vfdev *vfdev, uint64_t nodeid, uint64_t fh,
+int uk_vf_write(struct uk_vfdev *vfdev, uint64_t nodeid, uint64_t fh,
 		       uint32_t len, uint64_t off, void *in_buf)
 {
 	int rc = 0;
@@ -99,7 +100,7 @@ static int uk_vf_write(struct uk_vfdev *vfdev, uint64_t nodeid, uint64_t fh,
  * @param off
  * @return int
  */
-static int uk_vf_read(struct uk_vfdev *vfdev, uint64_t nodeid, uint64_t fh,
+int uk_vf_read(struct uk_vfdev *vfdev, uint64_t nodeid, uint64_t fh,
 		      uint32_t len, uint64_t off, void *out_buf)
 {
 	int rc = 0;
@@ -123,7 +124,26 @@ void add_fusedev(struct uk_fuse_dev *fusedev)
 	fusedev_for_dax = fusedev;
 }
 
-void vf_test_method() {
+struct uk_vfdev uk_vf_connect(void) {
+	struct uk_vfdev vfdev = {0};
+
+	if (vdev_for_dax) {
+		vfdev.dax_enabled =
+			vdev_for_dax->cops->shm_present(vdev_for_dax, 0);
+		vfdev.dax_addr =
+			vdev_for_dax->cops->get_shm_addr(vdev_for_dax, 0);
+		vfdev.dax_len =
+			vdev_for_dax->cops->get_shm_length(vdev_for_dax, 0);
+	}
+	if (fusedev_for_dax)
+		vfdev.fuse_dev = fusedev_for_dax;
+	else
+		uk_pr_info("%s: No fuse device found. \n", __func__);
+
+	return vfdev;
+}
+
+void vf_test_method(void) {
 	struct uk_vfdev vfdev = {0};
 	void *outbuf;
 
@@ -141,7 +161,6 @@ void vf_test_method() {
 		vfdev.fuse_dev = fusedev_for_dax;
 	else
 		uk_pr_err("%s: No fuse device found. \n", __func__);
-	vfdev.fuse_dev = fusedev_for_dax;
 
 	outbuf = calloc(11, 1);
 	if (!outbuf) {
