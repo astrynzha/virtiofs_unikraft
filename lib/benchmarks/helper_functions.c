@@ -1,4 +1,5 @@
 #include "uk/helper_functions.h"
+#include "sys/random.h"
 #include "uk/fuse.h"
 #include "uk/fusedev_core.h"
 #include "uk/print.h"
@@ -18,12 +19,14 @@
 // }
 
 
-// /*
-//    Samples natrual numbers in range [lower; upper)
-// */
-// BYTES sample_in_range(BYTES lower, BYTES upper) {
-// 	return (rand() % (upper - lower)) + lower;
-// }
+/*
+	Samples natural numbers in range [lower; upper)
+*/
+BYTES sample_in_range(BYTES lower, BYTES upper) {
+	uint32_t rand;
+	getrandom(&rand, sizeof(uint32_t), 0);
+	return (rand % (upper - lower)) + lower;
+}
 
 // /*
 //     Reads `bytes` bytes with a 1KB buffer.
@@ -52,31 +55,33 @@
 
 /**
  * @brief writes #(@p bytes) bytes with a buffer of @p buffer_size.
-
+ *
+ * The caller has to uk_fuse_request_open() the file.
  *
  * @param fusedev
  * @param nodeid
  * @param fh
+ * @param foffset offset inside the file
  * @param bytes
  * @param buffer_size
  */
-inline void write_bytes_fuse(struct uk_fuse_dev *fusedev,
-	uint64_t nodeid, uint64_t fh, BYTES bytes, BYTES buffer_size)
+void write_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
+	uint64_t fh, BYTES foffset, BYTES bytes, BYTES buffer_size)
 {
 	int rc = 0;
 	int iteration = 0;
 	uint32_t bytes_transferred = 0;
 	char *buffer = malloc(buffer_size);
-	if (!buffer) {
+	if (unlikely(!buffer)) {
 		uk_pr_err("malloc failed\n");
 		return;
 	}
 
 	while (bytes > buffer_size) {
 		rc = uk_fuse_request_write(fusedev, nodeid, fh, buffer,
-			buffer_size, buffer_size * iteration++,
+			buffer_size, foffset + buffer_size * iteration++,
 			&bytes_transferred);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_write has failed\n");
 		}
 		bytes -= buffer_size;
@@ -85,9 +90,9 @@ inline void write_bytes_fuse(struct uk_fuse_dev *fusedev,
 	BYTES rest = bytes % buffer_size;
 	if (rest > 0) {
 		rc = uk_fuse_request_write(fusedev, nodeid, fh, buffer,
-			rest, buffer_size * iteration,
+			rest, foffset + buffer_size * iteration,
 			&bytes_transferred);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_write has failed\n");
 		}
 	}
@@ -95,10 +100,41 @@ inline void write_bytes_fuse(struct uk_fuse_dev *fusedev,
 	free(buffer);
 }
 
-inline void write_bytes_dax(struct uk_fuse_dev, struct uk_vfdev, uint64_t nodeid,
-	uint64_t fh, BYTES bytes, BYTES buffer_size)
+/**
+ * @brief
+ *
+ * The caller has to FUSE_SETUPMAPPING the write region of the file.
+ *
+ * @param fusedev
+ * @param vfdev
+ * @param nodeid
+ * @param fh
+ * @param moffset offset inside the DAX window
+ * @param bytes
+ * @param buffer_size
+ */
+void write_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
+	BYTES buffer_size)
 {
-	int rc
+	int iteration = 0;
+	char *buffer = malloc(buffer_size);
+	BYTES rest = bytes % buffer_size;
+	if (!buffer) {
+		uk_pr_err("malloc failed\n");
+		return;
+	}
+
+	while (bytes > buffer_size) {
+		memcpy((char *) dax_addr + moffset + buffer_size * iteration++,
+			buffer, buffer_size);
+		bytes -= buffer_size;
+	}
+	if (rest) {
+		memcpy((char *) dax_addr + moffset + buffer_size * iteration,
+			buffer, rest);
+	}
+
+	free(buffer);
 }
 
 /*

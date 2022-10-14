@@ -748,6 +748,9 @@ struct fuse_init_out {
 	uint32_t    time_gran;
 	/* Maximum number of pages in a read/write request */
 	uint16_t    max_pages;
+	/* contains log2(byte alignment) for
+	   foffset and moffset fields in structs
+	   fuse_setupmapping_out and fuse_removemapping_one. */
 	uint16_t    map_alignment;
 	uint32_t    unused[8];
 };

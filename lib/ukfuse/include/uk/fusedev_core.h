@@ -109,6 +109,9 @@ struct uk_fuse_dev {
 	uint32_t				max_pages;
 	/* Maximum number of bytes in a single write operation */
 	uint32_t				max_write;
+	/* foffset and moffset parameters of FUSE_SETUPMAPPING have to be
+	   a multiple of this value */
+	uint32_t				map_alignment;
 
 	/* Uid/Gid used to describe files' owner on the host side. */
 	uint32_t				owner_uid;

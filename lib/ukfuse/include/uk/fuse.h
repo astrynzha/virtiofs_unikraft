@@ -25,9 +25,15 @@ typedef struct
 	uint32_t mode;
 } fuse_file_context;
 
-int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
-			 uint64_t foffset, uint64_t len, uint64_t flags,
-			 uint64_t moffset);
+int uk_fuse_request_fsync(struct uk_fuse_dev *dev, bool is_dir,
+			  uint64_t nodeid, uint64_t fh, uint32_t flags);
+
+int uk_fuse_request_removemapping_in(struct uk_fuse_dev *dev, uint64_t moffset,
+				     uint64_t len);
+
+int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,
+				 uint64_t fh, uint64_t foffset, uint64_t len,
+				 uint64_t flags, uint64_t moffset);
 
 int uk_fuse_request_lseek(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
 			  uint64_t offset, uint32_t whence,
@@ -82,7 +88,7 @@ int uk_fuse_request_lookup(struct uk_fuse_dev *dev, uint64_t dir_nodeid,
 int uk_fuse_request_get_attr(struct uk_fuse_dev *dev, uint64_t nodeid,
 		     uint64_t file_handle, struct fuse_attr *attr);
 
-int uk_fuse_reqeust_init(struct uk_fuse_dev *dev);
+int uk_fuse_request_init(struct uk_fuse_dev *dev);
 
 int test_method();
 

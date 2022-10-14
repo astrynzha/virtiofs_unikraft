@@ -544,7 +544,7 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 				result = write_seq_dax(fusedev, vfdev, bytes,
 					buffer_size);
 			} else {
-				result = write_seq(fusedev, bytes, buffer_size,
+				result = write_seq_fuse(fusedev, bytes, buffer_size,
 					dc.nodeid);
 			}
 
@@ -746,11 +746,6 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	BYTES lower_write_limit, BYTES upper_write_limit, int measurements)
 {
 	int rc = 0;
-	fuse_file_context file = {
-		.is_dir = false, .name = "100M_file",
-		.flags = O_WRONLY,
-		.parent_nodeid = 1,
-	};
 	fuse_file_context dc = {.is_dir = true, .mode = 0777,
 		.flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK,
 		.parent_nodeid = 1
@@ -766,13 +761,6 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	uint32_t bytes_transferred = 0;
 	uint64_t results_offset = 0;
 
-
-	rc = uk_fuse_request_open(fusedev, file.is_dir,
-		file.nodeid, file.flags, &file.fh);
-	if (rc) {
-		uk_pr_err("uk_fuse_request_open has failed \n");
-		return;
-	}
 
 	// create a separate directory for this experiment
 	strcpy(dc.name, with_dax ? "write_rand_DAX" : "write_rand_FUSE");
@@ -817,9 +805,17 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		for (int i = 0; i < measurements; i++) {
 			printf("Measurement %d/%d running...\n", i + 1, measurements);
 
-			srand(time(NULL)); // setting random seed
 			/* TODOFS: write_randomly_dax & write_randomly_fuse */
-			result = write_randomly(file, bytes, buffer_size, lower_write_limit, upper_write_limit);
+			if (with_dax) {
+				result = write_randomly_dax(fusedev, vfdev,
+					bytes, buffer_size,
+					lower_write_limit, upper_write_limit);
+
+			} else {
+				result = write_randomly_fuse(fusedev, bytes,
+					buffer_size, lower_write_limit,
+					upper_write_limit);
+			}
 
 			sprintf(measurement_text, "%lu\n", result);
 			rc = uk_fuse_request_write(fusedev, measurements_fc.nodeid,

@@ -1,4 +1,6 @@
 # fuse.c
+uk_fuse_request_fsync
+uk_fuse_request_removemapping_in
 uk_fuse_request_setupmapping
 uk_fuse_request_lseek
 uk_fuse_request_readdirplus
@@ -14,7 +16,7 @@ uk_fuse_request_create
 uk_fuse_request_open
 uk_fuse_request_lookup
 uk_fuse_request_get_attr
-uk_fuse_reqeust_init
+uk_fuse_request_init
 test_method
 
 # fusereq.c

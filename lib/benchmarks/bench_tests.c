@@ -24,10 +24,10 @@ BYTES bpow(BYTES base, BYTES exp)
 	for (;;)
 	{
 		if (exp & 1)
-		result *= base;
+			result *= base;
 		exp >>= 1;
 		if (!exp)
-		break;
+			break;
 		base *= base;
 	}
 
@@ -56,7 +56,7 @@ void bench_test(void)
 	trans = uk_fusedev_trans_get_default();
 	dev = uk_fusedev_connect(trans, "myfs", NULL);
 
-	if ((rc = uk_fuse_reqeust_init(dev))) {
+	if ((rc = uk_fuse_request_init(dev))) {
 		uk_pr_err("uk_fuse_init has failed \n");
 		return;
 	}
@@ -91,7 +91,10 @@ void bench_test(void)
 	// write_seq_runner(dev, &vfdev, true, MB(100), buffer_sizes, max_pow2-3, 10);
 	// write_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 
-	read_seq_runner(dev, &vfdev, true, MB(100),
-		buffer_sizes, max_pow2-3, 10);
+	// read_seq_runner(dev, &vfdev, true, MB(100),
+	// 	buffer_sizes, max_pow2-3, 10);
+	write_randomly_runner(dev, &vfdev, true, MB(100),
+		buffer_sizes, max_pow2-3,
+		MB(0.01), MB(0.1), 10);
 	// read_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 }

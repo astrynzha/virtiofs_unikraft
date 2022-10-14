@@ -4,6 +4,7 @@
 #include "limits.h"
 #include "uk/arch/lcpu.h"
 #include "uk/assert.h"
+#include "uk/fuse_i.h"
 #include "uk/fusedev.h"
 #include "uk/helper_functions.h"
 #include "uk/print.h"
@@ -72,13 +73,13 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
 			&fc[i].nodeid, &fc[i].fh,
 			&fc[i].nlookup);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_create has failed \n");
 			goto free_fn;
 		}
 		rc = uk_fuse_request_release(fusedev, false,
 			fc[i].nodeid, fc[i].fh);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_release has failed \n");
 			goto free_fn;
 		}
@@ -186,7 +187,7 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		rc = uk_fuse_request_unlink(fusedev, file_name,
 			false, fc[i].nodeid,
 			fc[i].nlookup, dc.nodeid);
-		if (rc) {
+		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_unlink has failed \n");
 			goto free_fn;
 		}
@@ -468,6 +469,20 @@ free:
 	3. Repeats steps 1-2 until the 'remaining_bytes' amount of bytes
 	is written.
 */
+
+/**
+ * @brief
+ *
+ * Assumes a file called "100M_file" of size 100MiB exists in the root
+ * directory.
+ *
+ * @param fusedev
+ * @param remaining_bytes
+ * @param buffer_size
+ * @param lower_write_limit
+ * @param upper_write_limit
+ * @return __nanosec
+ */
 __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 			      BYTES remaining_bytes, BYTES buffer_size,
 			      BYTES lower_write_limit, BYTES upper_write_limit)
@@ -479,34 +494,149 @@ __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 		.parent_nodeid = 1,
 	};
 
-	BYTES size = get_file_size(file);
+	BYTES size = MB(100);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		return 0;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		return 0;
+	}
 
 	__nanosec start, end;
 
 	start = _clock();
 
-	long int position;
+	BYTES position;
 	while (remaining_bytes > upper_write_limit) {
 		position = (long int) sample_in_range(0ULL, size - upper_write_limit);
-		fseek(file, position, SEEK_SET);
 		BYTES bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
-		write_bytes_fuse(file, bytes_to_write, buffer_size);
-		#ifdef __linux__
-		fsync(fd);
-		#endif
+		write_bytes_fuse(fusedev, file.nodeid, file.fh, position,
+			bytes_to_write, buffer_size);
+		/* TODOFS: FUSE_FSYNC */
 		remaining_bytes -= bytes_to_write;
 	}
-	position = (long int) sample_in_range(0, size - upper_write_limit);
-	fseek(file, position, SEEK_SET);
-	write_bytes(file, remaining_bytes, buffer_size);
-	#ifdef __linux__
-	fsync(fd);
-	#endif
+	if (remaining_bytes > 0) {
+		position = (long int) sample_in_range(0,
+			size - upper_write_limit);
+		write_bytes_fuse(fusedev, file.nodeid, file.fh,
+			position, remaining_bytes, buffer_size);
+	}
+	/* TODOFS: FUSE_FSYNC */
 
 	end = _clock();
 
-    return end - start;
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return 0;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			return 0;
+	}
+
+	return end - start;
 }
+
+__nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
+			     struct uk_vfdev *vfdev, BYTES remaining_bytes,
+			     BYTES buffer_size, BYTES lower_write_limit,
+			     BYTES upper_write_limit)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1,
+	};
+
+	BYTES size = MB(100);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		return 0;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		return 0;
+	}
+
+	__nanosec start, end;
+
+	start = _clock();
+
+	BYTES foffset;
+	while (remaining_bytes > upper_write_limit) {
+		foffset = (long int) sample_in_range(0ULL, size - upper_write_limit);
+		/* Align according to the map_alignment */
+		if (fusedev->map_alignment)
+			foffset = foffset - foffset % fusedev->map_alignment;
+		BYTES bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
+
+		rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+			file.fh, foffset, bytes_to_write,
+			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+			return 0;
+		}
+		write_bytes_dax(vfdev->dax_addr, foffset,
+			bytes_to_write, buffer_size);
+		/* TODOFS: FUSE_FSYNC */
+		remaining_bytes -= bytes_to_write;
+
+		/* TODOFS: FUSE_REMOVEMAPPING. Maybe bundle? */
+	}
+	if (remaining_bytes > 0) {
+		foffset = (long int) sample_in_range(0,
+			size - upper_write_limit);
+		if (fusedev->map_alignment)
+			foffset = foffset - foffset % fusedev->map_alignment;
+
+		rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+			file.fh, foffset, remaining_bytes,
+			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+			return 0;
+		}
+		write_bytes_dax(vfdev->dax_addr, foffset,
+			remaining_bytes, buffer_size);
+	}
+
+	/* TODOFS: FUSE_FSYNC */
+
+	end = _clock();
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return 0;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			return 0;
+	}
+
+	return end - start;
+}
+
+
 
 /*
     Measure sequential read of `bytes` bytes.

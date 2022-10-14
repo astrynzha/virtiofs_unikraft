@@ -25,6 +25,9 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
 	int measurements);
+void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
+	BYTES lower_write_limit, BYTES upper_write_limit, int measurements);
 // void write_randomly_runner(const char *filename, BYTES bytes, BYTES *buffer_size_arr,
 //     size_t arr_size, BYTES lower_write_limit, BYTES upper_write_limit, int measurements);
 

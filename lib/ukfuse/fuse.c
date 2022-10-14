@@ -26,6 +26,27 @@
 /* TODOFS: remove */
 #include <uk/vf_vnops.h>
 
+/**
+ * @brief returns @p base to the power of @p exp
+ *
+ * TODOFS: remove, if Unikraft has it's own power function
+ *
+ */
+static inline uint32_t bpow(uint32_t base, uint32_t exp)
+{
+	uint32_t result = 1;
+	for (;;)
+	{
+		if (exp & 1)
+			result *= base;
+		exp >>= 1;
+		if (!exp)
+			break;
+		base *= base;
+	}
+
+	return result;
+}
 
 /* TODO: Temporary declaration. To remove, when getpid is added to nolibc */
 pid_t getpid(void);
@@ -71,6 +92,54 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 }
 
 /**
+ * @brief removemappnig request for one fuse_removemapping_one region
+ *
+ * @param dev
+ * @param moffset
+ * @param len
+ * @return int
+ */
+int uk_fuse_request_removemapping_in(struct uk_fuse_dev *dev, uint64_t moffset,
+				     uint64_t len)
+{
+	int rc = 0;
+	FUSE_REMOVEMAPPING_IN removemapping_in = {0};
+	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+	FUSE_HEADER_INIT(&removemapping_in.hdr, FUSE_REMOVEMAPPING,
+			 0, sizeof(FUSE_REMOVEMAPPING_IN) -
+			 sizeof(struct fuse_in_header));
+
+	removemapping_in.removemapping_in.count = 1;
+	removemapping_in.removemapping_one.moffset = moffset;
+	removemapping_in.removemapping_one.len = len;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &removemapping_in;
+	req->in_buffer_size = sizeof(removemapping_in);
+	req->out_buffer = &removemapping_out;
+	req->out_buffer_size = sizeof(removemapping_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fusedev_req_remove(dev, req);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+}
+
+
+
+/**
  * @brief
  *
  * @param dev
@@ -81,22 +150,44 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
  * @return int
  */
 int uk_fuse_request_fsync(struct uk_fuse_dev *dev, bool is_dir,
-			  uint64_t nodeid, uint64_t fh, uint32_t fsync_flags)
+			  uint64_t nodeid, uint64_t fh, uint32_t flags)
 {
 	int rc = 0;
 	FUSE_FSYNC_IN fsync_in = {0};
 	FUSE_FSYNC_OUT fsync_out = {0};
-	
+	struct uk_fuse_req *req;
 
+	UK_ASSERT(dev);
 
+	FUSE_HEADER_INIT(&fsync_in.hdr, is_dir ? FUSE_FSYNCDIR : FUSE_FSYNC,
+		nodeid, sizeof(struct fuse_fsync_in));
 
+	fsync_in.fsync.fh =  fh;
+	fsync_in.fsync.fsync_flags = flags;
 
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
 
+	req->in_buffer = &fsync_in;
+	req->in_buffer_size = sizeof(fsync_in);
+	req->out_buffer = &fsync_out;
+	req->out_buffer_size = sizeof(fsync_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fusedev_req_remove(dev, req);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
 }
 
-int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid, uint64_t fh,
-			 uint64_t foffset, uint64_t len, uint64_t flags,
-			 uint64_t moffset)
+int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,
+				 uint64_t fh, uint64_t foffset, uint64_t len,
+				 uint64_t flags, uint64_t moffset)
 {
 	int rc = 0;
 	FUSE_SETUPMAPPING_IN setupmapping_in = {0};
@@ -1033,7 +1124,7 @@ free:
 	return rc;
 }
 
-int uk_fuse_reqeust_init(struct uk_fuse_dev *dev)
+int uk_fuse_request_init(struct uk_fuse_dev *dev)
 {
 	struct uk_fuse_req *req;
 	FUSE_INIT_IN init_in = {0};
@@ -1048,7 +1139,8 @@ sizeof(init_in.init));
 	init_in.init.major = FUSE_KERNEL_VERSION;
 	init_in.init.minor = FUSE_KERNEL_MINOR_VERSION;
 	init_in.init.max_readahead = 0;
-	init_in.init.flags = FUSE_DO_READDIRPLUS | FUSE_MAX_PAGES;
+	init_in.init.flags = FUSE_DO_READDIRPLUS | FUSE_MAX_PAGES
+		| FUSE_MAP_ALIGNMENT;
 
 	req = uk_fusedev_req_create(dev);
 	if (PTRISERR(req))
@@ -1065,6 +1157,11 @@ sizeof(init_in.init));
 	dev->max_write = init_out.init.max_write;
 	dev->max_pages = init_out.init.max_pages ?
 		init_out.init.max_pages : FUSE_DEFAULT_MAX_PAGES_PER_REQ;
+	if (init_out.init.flags & FUSE_MAP_ALIGNMENT)
+		dev->map_alignment = bpow(2, init_out.init.map_alignment);
+	else
+		dev->map_alignment = 4096; /*TODOFS: what would be the correct
+					     value here? */
 
 
 
@@ -1122,7 +1219,7 @@ int test_method() {
 	dev = uk_fusedev_connect(trans, "myfs", NULL);
 
 
-	if ((rc = uk_fuse_reqeust_init(dev))) {
+	if ((rc = uk_fuse_request_init(dev))) {
 		uk_pr_err("uk_fuse_init has failed \n");
 		goto free;
 	}
