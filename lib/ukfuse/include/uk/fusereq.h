@@ -289,7 +289,10 @@ typedef struct
 {
 	struct fuse_in_header hdr;
 	struct fuse_removemapping_in removemapping_in;
-	struct fuse_removemapping_one removemapping_one;
+	/* TODOFS: use FUSE_REMOVEMAPPING_MAX_ENTRY from fuse_i.h as the array
+	   size. */
+	struct fuse_removemapping_one removemapping_one[4096
+		/ sizeof(struct fuse_removemapping_one)];
 
 } FUSE_REMOVEMAPPING_IN;
 

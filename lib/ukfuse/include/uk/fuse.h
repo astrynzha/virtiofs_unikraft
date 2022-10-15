@@ -28,7 +28,11 @@ typedef struct
 int uk_fuse_request_fsync(struct uk_fuse_dev *dev, bool is_dir,
 			  uint64_t nodeid, uint64_t fh, uint32_t flags);
 
-int uk_fuse_request_removemapping_in(struct uk_fuse_dev *dev, uint64_t moffset,
+int uk_fuse_request_removemapping_multiple(struct uk_fuse_dev *dev,
+					FUSE_REMOVEMAPPING_IN *removemapping_in,
+					size_t removemapping_one_cnt);
+
+int uk_fuse_request_removemapping(struct uk_fuse_dev *dev, uint64_t moffset,
 				     uint64_t len);
 
 int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,

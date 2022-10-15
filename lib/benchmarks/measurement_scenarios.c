@@ -6,11 +6,13 @@
 #include "uk/assert.h"
 #include "uk/fuse_i.h"
 #include "uk/fusedev.h"
+#include "uk/fusereq.h"
 #include "uk/helper_functions.h"
 #include "uk/print.h"
 #include "uk/time_functions.h"
 
 #include <dirent.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -558,20 +560,30 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		.flags = O_WRONLY,
 		.parent_nodeid = 1,
 	};
+	FUSE_REMOVEMAPPING_IN *mappings;
+	int mappings_cnt = 0;
+	const int mappings_max_cnt = 4096 /
+		sizeof(struct fuse_removemapping_one);
 
 	BYTES size = MB(100);
+
+	mappings = calloc(1, sizeof(FUSE_REMOVEMAPPING_IN));
+	if (!mappings) {
+		uk_pr_err("calloc failed\n");
+		return 0;
+	}
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_lookup has failed \n");
-		return 0;
+	goto free;
 	}
 	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
 		file.flags, &file.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_open has failed \n");
-		return 0;
+		goto free;
 	}
 
 	__nanosec start, end;
@@ -591,14 +603,40 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
 		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
-			return 0;
+			goto free;
 		}
+		mappings->removemapping_one[mappings_cnt++] =
+		(struct fuse_removemapping_one) {
+			.len = bytes_to_write, .moffset = foffset
+		};
 		write_bytes_dax(vfdev->dax_addr, foffset,
 			bytes_to_write, buffer_size);
 		/* TODOFS: FUSE_FSYNC */
 		remaining_bytes -= bytes_to_write;
 
+		if (mappings_cnt == mappings_max_cnt) {
+			rc = uk_fuse_request_removemapping_multiple(fusedev,
+				mappings, mappings_cnt);
+			if (unlikely(rc)) {
+				uk_pr_err("uk_fuse_request_removemapping"
+					"_multiple has failed \n");
+				goto free;
+			}
+			mappings_cnt = 0;
+			memset(mappings, 0, sizeof(FUSE_REMOVEMAPPING_IN));
+		}
 		/* TODOFS: FUSE_REMOVEMAPPING. Maybe bundle? */
+	}
+	if (mappings_cnt) {
+		rc = uk_fuse_request_removemapping_multiple(fusedev,
+			mappings, mappings_cnt);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_removemapping"
+				"_multiple has failed \n");
+			goto free;
+		}
+		mappings_cnt = 0;
+		memset(mappings, 0, sizeof(FUSE_REMOVEMAPPING_IN));
 	}
 	if (remaining_bytes > 0) {
 		foffset = (long int) sample_in_range(0,
@@ -611,10 +649,16 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
 		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
-			return 0;
+			goto free;
 		}
 		write_bytes_dax(vfdev->dax_addr, foffset,
 			remaining_bytes, buffer_size);
+		rc = uk_fuse_request_removemapping(fusedev, foffset,
+			remaining_bytes);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_removemapping has failed \n");
+			goto free;
+		}
 	}
 
 	/* TODOFS: FUSE_FSYNC */
@@ -625,15 +669,20 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		file.nodeid, file.fh);
 	if (rc) {
 			uk_pr_err("uk_fuse_request_release has failed \n");
-			return 0;
+			goto free;
 	}
 	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
 	if (rc) {
 			uk_pr_err("uk_fuse_request_forget has failed \n");
-			return 0;
+			goto free;
 	}
 
+	free(mappings);
 	return end - start;
+
+free:
+	free(mappings);
+	return 0;
 }
 
 

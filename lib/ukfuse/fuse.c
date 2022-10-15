@@ -91,53 +91,6 @@ static inline int send_and_wait(struct uk_fuse_dev *dev,
 	return 0;
 }
 
-/**
- * @brief removemappnig request for one fuse_removemapping_one region
- *
- * @param dev
- * @param moffset
- * @param len
- * @return int
- */
-int uk_fuse_request_removemapping_in(struct uk_fuse_dev *dev, uint64_t moffset,
-				     uint64_t len)
-{
-	int rc = 0;
-	FUSE_REMOVEMAPPING_IN removemapping_in = {0};
-	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
-	struct uk_fuse_req *req;
-
-	UK_ASSERT(dev);
-
-	FUSE_HEADER_INIT(&removemapping_in.hdr, FUSE_REMOVEMAPPING,
-			 0, sizeof(FUSE_REMOVEMAPPING_IN) -
-			 sizeof(struct fuse_in_header));
-
-	removemapping_in.removemapping_in.count = 1;
-	removemapping_in.removemapping_one.moffset = moffset;
-	removemapping_in.removemapping_one.len = len;
-
-	req = uk_fusedev_req_create(dev);
-	if (PTRISERR(req))
-		return PTR2ERR(req);
-
-	req->in_buffer = &removemapping_in;
-	req->in_buffer_size = sizeof(removemapping_in);
-	req->out_buffer = &removemapping_out;
-	req->out_buffer_size = sizeof(removemapping_out);
-
-	if ((rc = send_and_wait(dev, req)))
-		goto free;
-
-	uk_fusedev_req_remove(dev, req);
-	return 0;
-
-free:
-	uk_fusedev_req_remove(dev, req);
-	return rc;
-}
-
-
 
 /**
  * @brief
@@ -185,6 +138,140 @@ free:
 	return rc;
 }
 
+/**
+ * @brief removemapping request to release more than one mapping with one
+ * request.
+ *
+ * The caller has to initialize all the fuse_removemapping_one structs inside
+ * the @p removemapping_in. In total, at least
+ * @p removemapping_one_cnt pieces have to be initialized.
+ *
+ * fuse_in_header and fuse_removemapping_in in @p removemapping_in
+ * don't have to be initialized by the caller.
+ *
+ * @param dev
+ * @param one_arr array of fuse_removemapping_one's
+ * @param one_arr_len
+ * @return int
+ */
+int uk_fuse_request_removemapping_multiple(struct uk_fuse_dev *dev,
+					FUSE_REMOVEMAPPING_IN *removemapping_in,
+					size_t removemapping_one_cnt)
+{
+	int rc = 0;
+	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
+	struct uk_fuse_req *req;
+	uint64_t datalen;
+
+	UK_ASSERT(dev);
+
+	datalen = sizeof(struct fuse_removemapping_in)
+		+ sizeof(struct fuse_removemapping_one) * removemapping_one_cnt;
+
+	/* Zero the memory of fuse_in_header and fuse_removemapping_in and
+	   reinitialize it here to make sure it is done correctly */
+	memset(removemapping_in, 0, sizeof(struct fuse_in_header)
+		+ sizeof(struct fuse_removemapping_in));
+	FUSE_HEADER_INIT(&removemapping_in->hdr, FUSE_REMOVEMAPPING,
+		0, datalen);
+
+	removemapping_in->removemapping_in.count = removemapping_one_cnt;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		rc = PTR2ERR(req);
+
+	req->in_buffer = removemapping_in;
+	req->in_buffer_size = sizeof(struct fuse_in_header) + datalen;
+	req->out_buffer = &removemapping_out;
+	req->out_buffer_size = sizeof(removemapping_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+
+	uk_fusedev_req_remove(dev, req);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+}
+
+/**
+ * @brief removemappnig request for one fuse_removemapping_one region
+ *
+ * @param dev
+ * @param moffset
+ * @param len
+ * @return int
+ */
+int uk_fuse_request_removemapping(struct uk_fuse_dev *dev, uint64_t moffset,
+				     uint64_t len)
+{
+	int rc = 0;
+	FUSE_REMOVEMAPPING_IN *removemapping_in;
+	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+
+	removemapping_in = calloc(1, sizeof(FUSE_REMOVEMAPPING_IN));
+	if (!removemapping_in) {
+		uk_pr_err("calloc failed\n");
+		return -1;
+	}
+
+	FUSE_HEADER_INIT(&removemapping_in->hdr, FUSE_REMOVEMAPPING,
+			 0, sizeof(struct fuse_removemapping_in)
+			 + sizeof(struct fuse_removemapping_one));
+
+	removemapping_in->removemapping_in.count = 1;
+	removemapping_in->removemapping_one[0].moffset = moffset;
+	removemapping_in->removemapping_one[0].len = len;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req)) {
+		rc = PTR2ERR(req);
+		goto free_calloc;
+	}
+
+	req->in_buffer = removemapping_in;
+	req->in_buffer_size = sizeof(struct fuse_in_header)
+		+ sizeof(struct fuse_removemapping_in)
+		+ sizeof(struct fuse_removemapping_one);
+	req->out_buffer = &removemapping_out;
+	req->out_buffer_size = sizeof(removemapping_out);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fusedev_req_remove(dev, req);
+	free(removemapping_in);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+free_calloc:
+	free(removemapping_in);
+	return rc;
+}
+
+/**
+ * @brief
+ *
+ * The @p foffset and @p moffset have to be a multiple of dev->map_alignment
+ *
+ * @param dev
+ * @param nodeid
+ * @param fh
+ * @param foffset
+ * @param len
+ * @param flags
+ * @param moffset
+ * @return int
+ */
 int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,
 				 uint64_t fh, uint64_t foffset, uint64_t len,
 				 uint64_t flags, uint64_t moffset)
@@ -195,6 +282,9 @@ int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,
 	struct uk_fuse_req *req;
 
 	UK_ASSERT(dev);
+	UK_ASSERT(dev->map_alignment);
+	UK_ASSERT(foffset % dev->map_alignment == 0);
+	UK_ASSERT(moffset % dev->map_alignment == 0);
 
 	FUSE_HEADER_INIT(&setupmapping_in.hdr, FUSE_SETUPMAPPING,
 			 nodeid, sizeof(struct fuse_setupmapping_in));
