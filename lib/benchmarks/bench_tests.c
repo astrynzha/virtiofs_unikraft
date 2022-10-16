@@ -88,13 +88,13 @@ void bench_test(void)
 
 
 	// write_seq_runner(dev, &vfdev, false, MB(100), buffer_sizes, max_pow2-3, 10);
-	write_seq_runner(dev, &vfdev, true, MB(100), buffer_sizes, max_pow2-3, 10);
+	// write_seq_runner(dev, &vfdev, true, MB(100), buffer_sizes, max_pow2-3, 10);
 	// write_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 
 	// read_seq_runner(dev, &vfdev, true, MB(100),
 	// 	buffer_sizes, max_pow2-3, 10);
-	// write_randomly_runner(dev, &vfdev, false, MB(100),
-	// 	buffer_sizes, max_pow2-3,
-	// 	MB(0.01), MB(0.1), 10);
+	write_randomly_runner(dev, &vfdev, true, MB(100),
+		buffer_sizes, max_pow2-3,
+		MB(0.01), MB(0.1), 10);
 	// read_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
 }

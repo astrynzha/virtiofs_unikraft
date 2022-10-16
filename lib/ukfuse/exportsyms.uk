@@ -1,7 +1,7 @@
 # fuse.c
 uk_fuse_request_fsync
 uk_fuse_request_removemapping_multiple
-uk_fuse_request_removemapping
+uk_fuse_request_removemapping_legacy
 uk_fuse_request_setupmapping
 uk_fuse_request_lseek
 uk_fuse_request_readdirplus

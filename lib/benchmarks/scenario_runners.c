@@ -683,7 +683,7 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 				result = read_seq_dax(fusedev, vfdev, bytes,
 					buffer_size);
 			} else {
-				result = read_seq(fusedev, bytes, buffer_size);
+				result = read_seq_fuse(fusedev, bytes, buffer_size);
 			}
 
 			sprintf(measurement_text, "%lu\n", result);

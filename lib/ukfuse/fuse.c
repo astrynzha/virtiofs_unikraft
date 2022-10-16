@@ -201,9 +201,43 @@ free:
 }
 
 int uk_fuse_request_removemapping_legacy(struct uk_fuse_dev *dev,
-					 uint64_t nodeid, uint64_t moffset,
-					 uint64_t len)
+					 uint64_t nodeid, uint64_t fh,
+					 uint64_t moffset, uint64_t len)
 {
+	int rc = 0;
+	FUSE_REMOVEMAPPING_IN_LEGACY removemapping_in = {0};
+	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
+	struct uk_fuse_req *req;
+
+	UK_ASSERT(dev);
+
+	FUSE_HEADER_INIT(&removemapping_in.hdr, FUSE_REMOVEMAPPING, nodeid,
+		sizeof(struct fuse_removemapping_in_legacy));
+
+	removemapping_in.removemapping_in.fh = fh;
+	removemapping_in.removemapping_in.moffset = moffset;
+	removemapping_in.removemapping_in.len = len;
+
+	req = uk_fusedev_req_create(dev);
+	if (PTRISERR(req))
+		return PTR2ERR(req);
+
+	req->in_buffer = &removemapping_in;
+	req->in_buffer_size = sizeof(FUSE_REMOVEMAPPING_IN_LEGACY);
+	req->out_buffer = &removemapping_out;
+	req->out_buffer_size = sizeof(FUSE_REMOVEMAPPING_OUT);
+
+	if ((rc = send_and_wait(dev, req)))
+		goto free;
+
+	uk_fusedev_req_remove(dev, req);
+	return 0;
+
+free:
+	uk_fusedev_req_remove(dev, req);
+	return rc;
+
+
 
 }
 

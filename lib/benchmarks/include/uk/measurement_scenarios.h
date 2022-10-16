@@ -30,7 +30,7 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 // __nanosec write_randomly(FILE *file, BYTES bytes, BYTES buffer_size, BYTES lower_write_limit, BYTES upper_write_limit);
 
 // __nanosec read_seq(FILE *file, BYTES bytes, BYTES buffer_size);
-__nanosec read_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size);
+__nanosec read_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size);
 __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		       BYTES bytes, BYTES buffer_size);
 

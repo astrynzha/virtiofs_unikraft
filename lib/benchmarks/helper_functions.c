@@ -28,31 +28,6 @@ BYTES sample_in_range(BYTES lower, BYTES upper) {
 	return (rand % (upper - lower)) + lower;
 }
 
-// /*
-//     Reads `bytes` bytes with a 1KB buffer.
-// */
-// void read_bytes(FILE *file, BYTES bytes, BYTES buffer_size) {
-// 	char *buffer = malloc(buffer_size);
-// 	if (buffer == NULL) {
-// 		fprintf(stderr, "Error! Memory not allocated. At %s, line %d. \n", __FILE__, __LINE__);
-// 		exit(EXIT_FAILURE);
-// 	}
-
-// 	while (bytes > buffer_size) {
-// 		if (buffer_size != fread(buffer, 1, (size_t) buffer_size, file)) {
-// 			puts("Failed to read\n");
-// 		}
-// 		bytes -= buffer_size;
-// 	}
-//     BYTES rest = bytes % buffer_size;
-//     if (rest > 0) {
-//         if (rest != fread(buffer, sizeof(char), (size_t) rest, file)) {
-//             puts("Failed to read");
-//         }
-//     }
-// 	free(buffer);
-// }
-
 /**
  * @brief writes #(@p bytes) bytes with a buffer of @p buffer_size.
  *
@@ -66,7 +41,8 @@ BYTES sample_in_range(BYTES lower, BYTES upper) {
  * @param buffer_size
  */
 void write_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
-	uint64_t fh, BYTES foffset, BYTES bytes, BYTES buffer_size)
+		      uint64_t fh, BYTES foffset, BYTES bytes,
+		      BYTES buffer_size)
 {
 	int rc = 0;
 	int iteration = 0;
@@ -117,9 +93,9 @@ void write_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 	BYTES buffer_size)
 {
 	int iteration = 0;
-	char *buffer = malloc(buffer_size);
 	BYTES rest = bytes % buffer_size;
-	if (!buffer) {
+	char *buffer = malloc(buffer_size);
+	if (unlikely(!buffer)) {
 		uk_pr_err("malloc failed\n");
 		return;
 	}
@@ -127,6 +103,70 @@ void write_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 	while (bytes > buffer_size) {
 		memcpy((char *) dax_addr + moffset + buffer_size * iteration++,
 			buffer, buffer_size);
+		bytes -= buffer_size;
+	}
+	if (rest) {
+		memcpy((char *) dax_addr + moffset + buffer_size * iteration,
+			buffer, rest);
+	}
+
+	free(buffer);
+}
+
+/*
+    Reads `bytes` bytes with a 1KB buffer.
+*/
+void read_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
+		     uint64_t fh, BYTES foffset, BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	int iteration = 0;
+	uint32_t bytes_transferred = 0;
+	char *buffer = malloc(buffer_size);
+	if (unlikely(!buffer)) {
+		uk_pr_err("malloc failed\n");
+		return;
+	}
+
+	while (bytes > buffer_size) {
+		rc = uk_fuse_request_read(fusedev, nodeid, fh,
+			foffset + buffer_size * iteration++,
+			buffer_size, buffer,
+			&bytes_transferred);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_read has failed\n");
+		}
+		bytes -= buffer_size;
+	}
+
+	BYTES rest = bytes % buffer_size;
+	if (rest) {
+		rc = uk_fuse_request_read(fusedev, nodeid, fh,
+			foffset + buffer_size * iteration,
+			rest, buffer,
+			&bytes_transferred);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_read has failed\n");
+		}
+	}
+
+	free(buffer);
+}
+
+void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
+	BYTES buffer_size)
+{
+	int iteration = 0;
+	BYTES rest = bytes % buffer_size;
+	char *buffer = malloc(buffer_size);
+	if (unlikely(!buffer)) {
+		uk_pr_err("malloc failed\n");
+		return;
+	}
+
+	while (bytes > buffer_size) {
+		memcpy(buffer, (char *) dax_addr + moffset
+			+ buffer_size * iteration++, buffer_size);
 		bytes -= buffer_size;
 	}
 	if (rest) {

@@ -36,8 +36,15 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names);
 BYTES sample_in_range(BYTES lower, BYTES upper);
 // void read_bytes(FILE *file, BYTES bytes, BYTES buffer_size);
 void write_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
-	uint64_t fh, BYTES foffset, BYTES bytes, BYTES buffer_size);
+		      uint64_t fh, BYTES foffset, BYTES bytes,
+		      BYTES buffer_size);
 void write_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
-	BYTES buffer_size);
+		     BYTES buffer_size);
+void read_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
+		     uint64_t fh, BYTES foffset, BYTES bytes,
+		     BYTES buffer_size);
+void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
+		    BYTES buffer_size);
+
 
 #endif /* HELPER_FUNCTIONS_H */

@@ -417,6 +417,9 @@ __nanosec write_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		goto free;
 	}
 
+	__nanosec start, end;
+	start = _clock();
+
 	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
 		file.fh, 0, MB(100),
 		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
@@ -424,9 +427,6 @@ __nanosec write_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
 		goto free;
 	}
-
-	__nanosec start, end;
-	start = _clock();
 
 
 	for (BYTES i = 0; i < iterations; i++) {
@@ -440,12 +440,26 @@ __nanosec write_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 
 	rc = uk_fuse_request_flush(fusedev, file.nodeid, file.fh);
 
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, MB(100));
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		return 0;
+	}
+
+
 	end = _clock();
 
 	rc = uk_fuse_request_release(fusedev, false,
 		file.nodeid, file.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_release has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
 		goto free;
 	}
 
@@ -560,129 +574,61 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		.flags = O_WRONLY,
 		.parent_nodeid = 1,
 	};
-	FUSE_REMOVEMAPPING_IN *mappings;
-	int mappings_cnt = 0;
-	const int mappings_max_cnt = 4096 /
-		sizeof(struct fuse_removemapping_one);
 
 	BYTES size = MB(100);
-
-	mappings = calloc(1, sizeof(FUSE_REMOVEMAPPING_IN));
-	if (!mappings) {
-		uk_pr_err("calloc failed\n");
-		return 0;
-	}
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_lookup has failed \n");
-	goto free;
+		return 0;
 	}
 	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
 		file.flags, &file.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_open has failed \n");
-		goto free;
+		return 0;
 	}
-
-
-	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
-			file.fh, 0, 0,
-			FUSE_SETUPMAPPING_FLAG_WRITE, 0);
-	if (unlikely(rc)) {
-		uk_pr_err("1 uk_fuse_request_setupmapping has failed \n");
-		goto free;
-	}
-	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid, 0, 0);
-	if (unlikely(rc)) {
-		uk_pr_err("1 uk_fuse_request_removemapping_legacy has failed \n");
-		goto free;
-	}
-
-
-	return 0;
-
-
 
 
 	__nanosec start, end;
 
 	start = _clock();
 
-	BYTES foffset;
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, MB(100),
+		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		return 0;
+	}
+
+	BYTES moffset;
 	BYTES bytes_to_write;
 	while (remaining_bytes > upper_write_limit) {
-		foffset = (long int) sample_in_range(0ULL, size - upper_write_limit);
-		/* Align according to the map_alignment */
-		if (fusedev->map_alignment)
-			foffset = foffset - foffset % fusedev->map_alignment;
+		moffset = (long int) sample_in_range(0ULL, size - upper_write_limit);
 		bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
 
-		rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
-			file.fh, foffset, bytes_to_write,
-			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
-		if (unlikely(rc)) {
-			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
-			goto free;
-		}
-		mappings->removemapping_one[mappings_cnt++] =
-		(struct fuse_removemapping_one) {
-			.len = bytes_to_write, .moffset = foffset
-		};
-		write_bytes_dax(vfdev->dax_addr, foffset,
+		write_bytes_dax(vfdev->dax_addr, moffset,
 			bytes_to_write, buffer_size);
 		/* TODOFS: FUSE_FSYNC */
 		remaining_bytes -= bytes_to_write;
-
-		if (mappings_cnt == mappings_max_cnt) {
-			rc = uk_fuse_request_removemapping_multiple(fusedev,
-				mappings, mappings_cnt);
-			if (unlikely(rc)) {
-				uk_pr_err("uk_fuse_request_removemapping"
-					"_multiple has failed \n");
-				goto free;
-			}
-			mappings_cnt = 0;
-			memset(mappings, 0, sizeof(FUSE_REMOVEMAPPING_IN));
-		}
-		/* TODOFS: FUSE_REMOVEMAPPING. Maybe bundle? */
-	}
-	if (mappings_cnt) {
-		rc = uk_fuse_request_removemapping_multiple(fusedev,
-			mappings, mappings_cnt);
-		if (unlikely(rc)) {
-			uk_pr_err("uk_fuse_request_removemapping"
-				"_multiple has failed \n");
-			goto free;
-		}
-		mappings_cnt = 0;
-		memset(mappings, 0, sizeof(FUSE_REMOVEMAPPING_IN));
 	}
 	if (remaining_bytes > 0) {
-		foffset = (long int) sample_in_range(0,
+		moffset = (long int) sample_in_range(0,
 			size - upper_write_limit);
-		if (fusedev->map_alignment)
-			foffset = foffset - foffset % fusedev->map_alignment;
-
-		rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
-			file.fh, foffset, remaining_bytes,
-			FUSE_SETUPMAPPING_FLAG_WRITE, foffset);
-		if (unlikely(rc)) {
-			uk_pr_err("uk_fuse_request_setupmapping has failed \n");
-			goto free;
-		}
-		write_bytes_dax(vfdev->dax_addr, foffset,
+		write_bytes_dax(vfdev->dax_addr, moffset,
 			remaining_bytes, buffer_size);
-		rc = uk_fuse_request_removemapping(fusedev, file.nodeid,
-			foffset, remaining_bytes);
-		if (unlikely(rc)) {
-			uk_pr_err("uk_fuse_request_removemapping has failed \n");
-			goto free;
-		}
 	}
 
 	/* TODOFS: FUSE_FSYNC */
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, MB(100));
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		return 0;
+	}
 
 	end = _clock();
 
@@ -690,20 +636,15 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		file.nodeid, file.fh);
 	if (rc) {
 			uk_pr_err("uk_fuse_request_release has failed \n");
-			goto free;
+			return 0;
 	}
 	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
 	if (rc) {
 			uk_pr_err("uk_fuse_request_forget has failed \n");
-			goto free;
+			return 0;
 	}
 
-	free(mappings);
 	return end - start;
-
-free:
-	free(mappings);
-	return 0;
 }
 
 
@@ -711,7 +652,8 @@ free:
 /*
     Measure sequential read of `bytes` bytes.
 */
-__nanosec read_seq(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size)
+__nanosec read_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes,
+			BYTES buffer_size)
 {
 	int rc = 0;
 	fuse_file_context file = {
@@ -794,7 +736,7 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	int rc = 0;
 	fuse_file_context file = {
 		.is_dir = false, .name = "100M_file",
-		.flags = O_WRONLY,
+		.flags = O_RDONLY,
 		.parent_nodeid = 1
 	};
 	char *buffer = malloc(buffer_size);
@@ -820,6 +762,10 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		goto free;
 	}
 
+	__nanosec start, end;
+
+	start = _clock();
+
 	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
 		file.fh, 0, MB(100),
 		FUSE_SETUPMAPPING_FLAG_READ, 0);
@@ -828,10 +774,6 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		goto free;
 	}
 
-	__nanosec start, end;
-
-	start = _clock();
-
 	for (BYTES i = 0; i < iterations; i++) {
 		memcpy(buffer, ((char *) dax_addr) + buffer_size * i,
 			buffer_size);
@@ -839,6 +781,13 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	if (rest > 0) {
 		memcpy(buffer, ((char *) dax_addr) + buffer_size * iterations,
 			rest);
+	}
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, MB(100));
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		return 0;
 	}
 
 	end = _clock();
@@ -862,6 +811,151 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 free:
 	free(buffer);
 	return 0;
+}
+
+__nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
+			     BYTES remaining_bytes, BYTES buffer_size,
+			     BYTES lower_read_limit, BYTES upper_read_limit)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_RDONLY,
+		.parent_nodeid = 1,
+	};
+
+	BYTES size = MB(100);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		return 0;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		return 0;
+	}
+
+	__nanosec start, end;
+
+	start = _clock();
+
+	BYTES position;
+	while (remaining_bytes > upper_read_limit) {
+		position = (long int) sample_in_range(0ULL, size - upper_read_limit);
+		BYTES bytes_to_write = sample_in_range(lower_read_limit, upper_read_limit);
+		read_bytes_fuse(fusedev, file.nodeid, file.fh, position,
+			bytes_to_write, buffer_size);
+		/* TODOFS: FUSE_FSYNC */
+		remaining_bytes -= bytes_to_write;
+	}
+	if (remaining_bytes > 0) {
+		position = (long int) sample_in_range(0,
+			size - upper_read_limit);
+		read_bytes_fuse(fusedev, file.nodeid, file.fh,
+			position, remaining_bytes, buffer_size);
+	}
+
+	/* TODOFS: FUSE_FSYNC */
+
+	end = _clock();
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return 0;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			return 0;
+	}
+
+	return end - start;
+}
+
+__nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
+			    struct uk_vfdev *vfdev, BYTES remaining_bytes,
+			    BYTES buffer_size, BYTES lower_read_limit,
+			    BYTES upper_read_limit)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "100M_file",
+		.flags = O_RDONLY,
+		.parent_nodeid = 1,
+	};
+
+	BYTES size = MB(100);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		return 0;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		return 0;
+	}
+
+	__nanosec start, end;
+
+	start = _clock();
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, MB(100),
+		FUSE_SETUPMAPPING_FLAG_READ, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		return 0;
+	}
+
+	BYTES moffset;
+	BYTES bytes_to_read;
+	while (remaining_bytes > upper_read_limit) {
+		moffset = (long int) sample_in_range(0ULL, size - upper_read_limit);
+		bytes_to_read = sample_in_range(lower_read_limit, upper_read_limit);
+
+		read_bytes_dax(vfdev->dax_addr, moffset,
+			bytes_to_read, buffer_size);
+		remaining_bytes -= bytes_to_read;
+	}
+	if (remaining_bytes > 0) {
+		moffset = (long int) sample_in_range(0,
+			size - upper_read_limit);
+		read_bytes_dax(vfdev->dax_addr, moffset,
+			remaining_bytes, buffer_size);
+	}
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, MB(100));
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		return 0;
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return 0;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			return 0;
+	}
+
+	return end - start;
 }
 
 
