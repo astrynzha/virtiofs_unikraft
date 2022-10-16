@@ -969,6 +969,26 @@ struct fuse_setupmapping_in {
 	uint64_t	moffset;
 };
 
+/**
+ * The outdated version of the removemapping request. Works with the
+ * modified qemu on branch remotes/origin/virtio-fs:
+ * https://gitlab.com/virtio-fs/qemu/-/tree/virtio-fs
+ */
+struct fuse_removemapping_in_legacy {
+	/* An already open handle */
+	uint64_t	fh;
+        /* Offset into the dax to start the unmapping */
+        uint64_t        moffset;
+        /* Length of mapping required */
+        uint64_t        len;
+};
+
+/**
+ * The improved version of the removemapping request. Works with the
+ * modified qemu on other branches, e.g. remotes/origin/virtio-fs-dev or
+ * remotes/origin/qemu5.0-virtiofs-dax:
+ * https://gitlab.com/virtio-fs/qemu/-/tree/virtio-fs-dev
+ */
 struct fuse_removemapping_in {
 	/* number of fuse_removemapping_one follows */
 	uint32_t        count;

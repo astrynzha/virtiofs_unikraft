@@ -298,6 +298,14 @@ typedef struct
 
 typedef struct
 {
+	struct fuse_in_header hdr;
+	struct fuse_removemapping_in removemapping_in;
+	struct fuse_removemapping_one removemapping_one;
+
+} FUSE_REMOVEMAPPING_ONE_IN;
+
+typedef struct
+{
 	struct fuse_out_header hdr;
 } FUSE_REMOVEMAPPING_OUT;
 

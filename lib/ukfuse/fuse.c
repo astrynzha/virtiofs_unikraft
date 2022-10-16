@@ -172,6 +172,8 @@ int uk_fuse_request_removemapping_multiple(struct uk_fuse_dev *dev,
 	   reinitialize it here to make sure it is done correctly */
 	memset(removemapping_in, 0, sizeof(struct fuse_in_header)
 		+ sizeof(struct fuse_removemapping_in));
+	/* nodeid is irrelevant for the current implementation of
+	   FUSE_REMOVEMAPPING */
 	FUSE_HEADER_INIT(&removemapping_in->hdr, FUSE_REMOVEMAPPING,
 		0, datalen);
 
@@ -198,6 +200,13 @@ free:
 	return rc;
 }
 
+int uk_fuse_request_removemapping_legacy(struct uk_fuse_dev *dev,
+					 uint64_t nodeid, uint64_t moffset,
+					 uint64_t len)
+{
+
+}
+
 /**
  * @brief removemappnig request for one fuse_removemapping_one region
  *
@@ -213,19 +222,21 @@ int uk_fuse_request_removemapping(struct uk_fuse_dev *dev, uint64_t moffset,
 	FUSE_REMOVEMAPPING_IN *removemapping_in;
 	FUSE_REMOVEMAPPING_OUT removemapping_out = {0};
 	struct uk_fuse_req *req;
+	uint64_t datalen;
 
 	UK_ASSERT(dev);
 
-
-	removemapping_in = calloc(1, sizeof(FUSE_REMOVEMAPPING_IN));
+	datalen = sizeof(struct fuse_removemapping_in)
+			+ sizeof(struct fuse_removemapping_one);
+	removemapping_in = calloc(1, sizeof(struct fuse_in_header)
+			   + datalen);
 	if (!removemapping_in) {
 		uk_pr_err("calloc failed\n");
 		return -1;
 	}
 
 	FUSE_HEADER_INIT(&removemapping_in->hdr, FUSE_REMOVEMAPPING,
-			 0, sizeof(struct fuse_removemapping_in)
-			 + sizeof(struct fuse_removemapping_one));
+			 0, datalen);
 
 	removemapping_in->removemapping_in.count = 1;
 	removemapping_in->removemapping_one[0].moffset = moffset;
@@ -238,9 +249,7 @@ int uk_fuse_request_removemapping(struct uk_fuse_dev *dev, uint64_t moffset,
 	}
 
 	req->in_buffer = removemapping_in;
-	req->in_buffer_size = sizeof(struct fuse_in_header)
-		+ sizeof(struct fuse_removemapping_in)
-		+ sizeof(struct fuse_removemapping_one);
+	req->in_buffer_size = sizeof(struct fuse_in_header) + datalen;
 	req->out_buffer = &removemapping_out;
 	req->out_buffer_size = sizeof(removemapping_out);
 

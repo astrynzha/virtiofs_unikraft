@@ -586,17 +586,38 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		goto free;
 	}
 
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+			file.fh, 0, 0,
+			FUSE_SETUPMAPPING_FLAG_WRITE, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("1 uk_fuse_request_setupmapping has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid, 0, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("1 uk_fuse_request_removemapping_legacy has failed \n");
+		goto free;
+	}
+
+
+	return 0;
+
+
+
+
 	__nanosec start, end;
 
 	start = _clock();
 
 	BYTES foffset;
+	BYTES bytes_to_write;
 	while (remaining_bytes > upper_write_limit) {
 		foffset = (long int) sample_in_range(0ULL, size - upper_write_limit);
 		/* Align according to the map_alignment */
 		if (fusedev->map_alignment)
 			foffset = foffset - foffset % fusedev->map_alignment;
-		BYTES bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
+		bytes_to_write = sample_in_range(lower_write_limit, upper_write_limit);
 
 		rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
 			file.fh, foffset, bytes_to_write,
@@ -653,8 +674,8 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 		}
 		write_bytes_dax(vfdev->dax_addr, foffset,
 			remaining_bytes, buffer_size);
-		rc = uk_fuse_request_removemapping(fusedev, foffset,
-			remaining_bytes);
+		rc = uk_fuse_request_removemapping(fusedev, file.nodeid,
+			foffset, remaining_bytes);
 		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_removemapping has failed \n");
 			goto free;

@@ -32,8 +32,9 @@ int uk_fuse_request_removemapping_multiple(struct uk_fuse_dev *dev,
 					FUSE_REMOVEMAPPING_IN *removemapping_in,
 					size_t removemapping_one_cnt);
 
-int uk_fuse_request_removemapping(struct uk_fuse_dev *dev, uint64_t moffset,
-				     uint64_t len);
+int uk_fuse_request_removemapping_legacy(struct uk_fuse_dev *dev,
+					 uint64_t nodeid, uint64_t moffset,
+					 uint64_t len);
 
 int uk_fuse_request_setupmapping(struct uk_fuse_dev *dev, uint64_t nodeid,
 				 uint64_t fh, uint64_t foffset, uint64_t len,
