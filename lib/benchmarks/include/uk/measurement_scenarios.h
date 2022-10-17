@@ -33,6 +33,13 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 __nanosec read_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size);
 __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		       BYTES bytes, BYTES buffer_size);
+__nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
+			     BYTES remaining_bytes, BYTES buffer_size,
+			     BYTES lower_read_limit, BYTES upper_read_limit);
+__nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
+			    struct uk_vfdev *vfdev, BYTES remaining_bytes,
+			    BYTES buffer_size, BYTES lower_read_limit,
+			    BYTES upper_read_limit);
 
 // __nanosec read_randomly(FILE *file, BYTES bytes, BYTES buffer_size, BYTES lower_read_limit, BYTES upper_read_limit);
 

@@ -63,20 +63,18 @@ void bench_test(void)
 
 	vfdev = uk_vf_connect();
 
-	// create_file_of_size("data_100M", MB(100));
-
-	// int max_pow = 17;
-	// FILES amount[max_pow];
-	// printf("amount\n");
-	// for (int i = 0; i < max_pow; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
-	// 	amount[i] = bpow(2, i + 1);
-	// 	printf("%lu\n", amount[i]);
-	// }
+	int max_pow = 17;
+	FILES amount[max_pow];
+	printf("amount\n");
+	for (int i = 0; i < max_pow; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
+		amount[i] = bpow(2, i + 1);
+		printf("%lu\n", amount[i]);
+	}
 
 
-	// create_files_runner(dev, amount, 17, 10);
-	// remove_files_runner(dev, amount, 17, 10);
-	// list_dir_runner(dev, amount, 17, 10);
+	create_files_runner(dev, amount, 17, 1);
+	remove_files_runner(dev, amount, 17, 1);
+	// list_dir_runner(dev, amount, 17, 1);
 
 	int max_pow2 = 27;
 	BYTES buffer_sizes[max_pow2-3];
@@ -87,14 +85,26 @@ void bench_test(void)
 	}
 
 
-	// write_seq_runner(dev, &vfdev, false, MB(100), buffer_sizes, max_pow2-3, 10);
-	// write_seq_runner(dev, &vfdev, true, MB(100), buffer_sizes, max_pow2-3, 10);
-	// write_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
+	write_seq_runner(dev, &vfdev, true, MB(100),
+			 buffer_sizes, max_pow2-3, 1);
+	write_seq_runner(dev, &vfdev, false, MB(100),
+			 buffer_sizes, max_pow2-3, 1);
 
 	// read_seq_runner(dev, &vfdev, true, MB(100),
-	// 	buffer_sizes, max_pow2-3, 10);
+	// 		buffer_sizes, max_pow2-3, 1);
+	// read_seq_runner(dev, &vfdev, false, MB(100),
+	// 		buffer_sizes, max_pow2-3, 1);
+
 	write_randomly_runner(dev, &vfdev, true, MB(100),
 		buffer_sizes, max_pow2-3,
-		MB(0.01), MB(0.1), 10);
-	// read_randomly_runner("data_100M", MB(100), buffer_sizes, max_pow2-3, MB(0.01), MB(0.1), 10);
+		MB(0.01), MB(0.1), 1);
+	write_randomly_runner(dev, &vfdev, false, MB(100),
+		buffer_sizes, max_pow2-3,
+		MB(0.01), MB(0.1), 1);
+	// read_randomly_runner(dev, &vfdev, true, MB(100),
+	// 	buffer_sizes, max_pow2-3,
+	// 	MB(0.01), MB(0.1), 1);
+	// read_randomly_runner(dev, &vfdev, false, MB(100),
+	// 	buffer_sizes, max_pow2-3,
+	// 	MB(0.01), MB(0.1), 1);
 }

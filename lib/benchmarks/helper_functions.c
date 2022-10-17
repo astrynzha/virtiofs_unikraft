@@ -170,8 +170,8 @@ void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 		bytes -= buffer_size;
 	}
 	if (rest) {
-		memcpy((char *) dax_addr + moffset + buffer_size * iteration,
-			buffer, rest);
+		memcpy(buffer, (char *) dax_addr + moffset
+		       + buffer_size * iteration, rest);
 	}
 
 	free(buffer);

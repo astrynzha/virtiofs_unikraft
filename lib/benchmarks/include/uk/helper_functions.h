@@ -8,7 +8,7 @@
 // #define NDEBUG
 #include <assert.h>
 
-#define DEBUGMODE 1
+#define DEBUGMODE 0
 #ifdef DEBUGMODE
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #else

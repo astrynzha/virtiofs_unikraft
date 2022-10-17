@@ -871,76 +871,130 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	}
 }
 
-// void read_randomly_runner(const char *filename, BYTES bytes, BYTES *buffer_size_arr,
-//     size_t arr_size, BYTES lower_read_limit, BYTES upper_read_limit, int measurements) {
-// 	FILE *file;
-// 	file = fopen(filename, "r");
-// 	if (file == NULL) {
-// 		fprintf(stderr, "Error opening file '%s'.\n", filename);
-// 		exit(EXIT_FAILURE);
-// 	}
+void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
+	BYTES lower_read_limit, BYTES upper_read_limit, int measurements)
+{
+	int rc = 0;
+	fuse_file_context dc = {.is_dir = true, .mode = 0777,
+		.flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK,
+		.parent_nodeid = 1
+	};
+	fuse_file_context results_fc = { .is_dir = false, .name = "results.csv",
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK
+	};
+	fuse_file_context measurements_fc = {.is_dir = false,
+		.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK
+	};
+	char measurement_text[100] = {0};
+	uint64_t meas_file_offset = 0;
+	uint32_t bytes_transferred = 0;
+	uint64_t results_offset = 0;
 
-//     // create a separate directory for this experiment
+	// create a separate directory for this experiment
+	strcpy(dc.name, with_dax ? "read_rand_DAX" : "read_rand_FUSE");
+	rc = uk_fuse_request_mkdir(fusedev, 1, dc.name,
+		dc.mode, &dc.nodeid, &dc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_mkdir has failed \n");
+		return;
+	}
 
-//     #ifdef __Unikraft__
-//     char dir_name[] = "read_rand_unikraft";
-//     #elif __linux__
-//     char dir_name[] = "read_rand_linux";
-//     #endif
-//     mkdir(dir_name, 0777);
-//     if (chdir(dir_name) == -1) {
-//         printf("Error: could not change directory to %s\n", dir_name);
-//     }
+	rc = uk_fuse_request_create(fusedev, dc.nodeid,
+		results_fc.name, results_fc.flags,
+		results_fc.mode, &results_fc.nodeid, &results_fc.fh,
+		&results_fc.nlookup);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_create has failed \n");
+		return;
+	}
 
-//     char fname_results[] = "results.csv";
-//     FILE *fp_results = fopen(fname_results, "w");
+	for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each buffer_size
+		sprintf(measurements_fc.name, "measurement_%lu.csv", i);
+		rc = uk_fuse_request_create(fusedev, dc.nodeid,
+			measurements_fc.name,
+			O_WRONLY | O_CREAT | O_EXCL | O_NONBLOCK, 0777,
+			&measurements_fc.nodeid, &measurements_fc.fh,
+			&measurements_fc.nlookup);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_create has failed \n");
+			return;
+		}
 
-//     for (size_t i = 0; i < arr_size; i++) { // conducts measurement for each buffer_size
-//         char fname[17+DIGITS(i)];
-//         sprintf(fname, "measurement_%lu.csv", i);
-//         FILE *fp_measurement = fopen(fname, "w");
+		BYTES buffer_size = buffer_size_arr[i];
 
-//         BYTES buffer_size = buffer_size_arr[i];
+		printf("###########################\n");
+		printf("%lu/%lu. Measuring random read of %llu megabytes with a buffer of %lluB\n",
+		i+1, arr_size, B_TO_MB(bytes), buffer_size);
 
-//         printf("###########################\n");
-//         printf("%lu/%lu. Measuring random read of %llu megabytes with a buffer of %lluB\n",
-//             i+1, arr_size, B_TO_MB(bytes), buffer_size);
+		__nanosec result;
+		__nanosec result_ms;
+		__nanosec total = 0;
 
-//         __nanosec result;
-//         __nanosec result_ms;
-//         __nanosec total = 0;
+		for (int i = 0; i < measurements; i++) {
+			printf("Measurement %d/%d running...\n", i + 1, measurements);
 
-//         for (int i = 0; i < measurements; i++) {
-//             #ifdef __linux__
-//             system("sync; echo 3 > /proc/sys/vm/drop_caches");
-//             #endif
-//             printf("Measurement %d/%d running...\n", i + 1, measurements);
+			result = with_dax ?
+				read_randomly_dax(fusedev, vfdev,
+					bytes, buffer_size, lower_read_limit,
+					upper_read_limit)
+					  :
+				read_randomly_fuse(fusedev, bytes,
+					buffer_size, lower_read_limit,
+					upper_read_limit);
 
-//             srand(time(NULL)); // setting random seed
-//             result = read_randomly(file, bytes, buffer_size, lower_read_limit, upper_read_limit);
+			sprintf(measurement_text, "%lu\n", result);
+			rc = uk_fuse_request_write(fusedev, measurements_fc.nodeid,
+				measurements_fc.fh, measurement_text,
+				strlen(measurement_text),
+				meas_file_offset, &bytes_transferred);
+			if (rc) {
+				uk_pr_err("uk_fuse_request_write has failed \n");
+				return;
+			}
+			meas_file_offset += bytes_transferred;
+			measurement_text[0] = '\0';
 
-//             fprintf(fp_measurement, "%lu\n", result);
-//             result_ms = nanosec_to_milisec(result);
-//             printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+			result_ms = nanosec_to_milisec(result);
+			printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
 
-//             total += result;
-//         }
+			total += result;
+		}
+		meas_file_offset = 0;
 
-//         total /= measurements;
-//         fprintf(fp_results, "%llu,%lu\n", buffer_size, total);
-//         __nanosec total_ms = nanosec_to_milisec(total);
+		total /= measurements;
+		sprintf(measurement_text, "%llu,%lu\n", buffer_size, total);
+		rc = uk_fuse_request_write(fusedev, results_fc.nodeid,
+			results_fc.fh, measurement_text,
+			strlen(measurement_text),
+			results_offset, &bytes_transferred);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_write has failed \n");
+			return;
+		}
+		results_offset += bytes_transferred;
+		measurement_text[0] = '\0';
 
-//         printf("%d measurements successfully conducted\n", measurements);
-//         printf("Reading %lluMB with a buffer of %lluB took on average: %lums %.3fs \n",
-//             B_TO_MB(bytes), buffer_size, total_ms, (double) total_ms / 1000);
+		__nanosec total_ms = nanosec_to_milisec(total);
 
-//         fclose(fp_measurement);
-//     }
+		printf("%d measurements successfully conducted\n", measurements);
+		printf("Reading %lluMB with a buffer of %lluB took on average: %lums %.3fs \n",
+		B_TO_MB(bytes), buffer_size, total_ms, (double) total_ms / 1000);
 
-//     fclose(fp_results);
-// 	fclose(file);
-//     chdir("..");
-// }
+		rc = uk_fuse_request_release(fusedev, false,
+			measurements_fc.nodeid, measurements_fc.fh);
+		if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return;
+		}
+	}
+	rc = uk_fuse_request_release(fusedev, false,
+		results_fc.nodeid, results_fc.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			return;
+	}
+}
 
 // /*
 //     Creates a file, filled with 'X' charachters, of size `bytes`, with a given filename
