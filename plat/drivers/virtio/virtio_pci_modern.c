@@ -1058,6 +1058,9 @@ static int virtio_pci_modern_find_cap(struct pci_device *pdev,
 					 curr_cap,
 					 &curr_cap)) {
 
+		/* TODOFS: this is x86 specific code. Need to abstract this
+		away and push down into the pci_bus.c or pci_bus.h (probably),
+		so that his function can stay architecture-agnostic */
 		/* Spec: MUST ignore any vendor-specific capability structure
 		 * which has a reserved bar value. */
 		PCI_CONF_READ_OFFSET(uint8_t, &bar, pdev->config_addr,

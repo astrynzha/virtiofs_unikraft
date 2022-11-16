@@ -72,8 +72,8 @@ void bench_test(void)
 	}
 
 
-	create_files_runner(dev, amount, 17, 1);
-	remove_files_runner(dev, amount, 17, 1);
+	// create_files_runner(dev, amount, 17, 1);
+	// remove_files_runner(dev, amount, 17, 1);
 	// list_dir_runner(dev, amount, 17, 1);
 
 	int max_pow2 = 27;
@@ -87,8 +87,8 @@ void bench_test(void)
 
 	write_seq_runner(dev, &vfdev, true, MB(100),
 			 buffer_sizes, max_pow2-3, 1);
-	write_seq_runner(dev, &vfdev, false, MB(100),
-			 buffer_sizes, max_pow2-3, 1);
+	// write_seq_runner(dev, &vfdev, false, MB(100),
+	// 		 buffer_sizes, max_pow2-3, 1);
 
 	// read_seq_runner(dev, &vfdev, true, MB(100),
 	// 		buffer_sizes, max_pow2-3, 1);
@@ -98,9 +98,9 @@ void bench_test(void)
 	write_randomly_runner(dev, &vfdev, true, MB(100),
 		buffer_sizes, max_pow2-3,
 		MB(0.01), MB(0.1), 1);
-	write_randomly_runner(dev, &vfdev, false, MB(100),
-		buffer_sizes, max_pow2-3,
-		MB(0.01), MB(0.1), 1);
+	// write_randomly_runner(dev, &vfdev, false, MB(100),
+		// buffer_sizes, max_pow2-3,
+		// MB(0.01), MB(0.1), 1);
 	// read_randomly_runner(dev, &vfdev, true, MB(100),
 	// 	buffer_sizes, max_pow2-3,
 	// 	MB(0.01), MB(0.1), 1);

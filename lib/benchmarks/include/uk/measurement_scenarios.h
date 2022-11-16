@@ -1,6 +1,7 @@
 #ifndef MEASUREMENT_SCENARIOS_H
 #define MEASUREMENT_SCENARIOS_H
 
+#include <stddef.h>
 #include <stdio.h>
 
 #include "helper_functions.h"

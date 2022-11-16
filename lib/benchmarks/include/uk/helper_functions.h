@@ -32,6 +32,11 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names);
 #define B_TO_GB(n) ((BYTES) ((n) / 1024 / 1024 / 1024))
 
 
+struct file_interval {
+	BYTES off;
+	BYTES len;
+};
+
 // BYTES get_file_size(FILE *file);
 BYTES sample_in_range(BYTES lower, BYTES upper);
 // void read_bytes(FILE *file, BYTES bytes, BYTES buffer_size);
@@ -45,6 +50,8 @@ void read_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
 		     BYTES buffer_size);
 void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 		    BYTES buffer_size);
+void slice_file(BYTES file_size, struct file_interval **intervals,
+		BYTES **interval_order, BYTES *num_intervals);
 
 
 #endif /* HELPER_FUNCTIONS_H */
