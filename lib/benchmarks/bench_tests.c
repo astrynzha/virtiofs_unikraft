@@ -76,35 +76,37 @@ void bench_test(void)
 	// remove_files_runner(dev, amount, 17, 1);
 	// list_dir_runner(dev, amount, 17, 1);
 
-	int max_pow2 = 27;
-	BYTES buffer_sizes[max_pow2-3];
+	int max_pow2 = 20;
+	int min_pow2 = 8;
+	int arr_size = max_pow2 - min_pow2 + 1;
+	BYTES buffer_sizes[arr_size];
 	printf("buffer sizes\n");
-	for (int i = 0; i < max_pow2-3; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
-		buffer_sizes[i] = bpow(2, i+4);
-		printf("%llu\n", buffer_sizes[i]);
+	for (int i = min_pow2; i < max_pow2 + 1; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
+		buffer_sizes[i-min_pow2] = bpow(2, i);
+		printf("%llu\n", buffer_sizes[i - min_pow2]);
 	}
 
 
-	write_seq_runner(dev, &vfdev, true, MB(100),
-			 buffer_sizes, max_pow2-3, 1);
-	// write_seq_runner(dev, &vfdev, false, MB(100),
-	// 		 buffer_sizes, max_pow2-3, 1);
+	write_seq_runner(dev, &vfdev, true, GB(1),
+			 buffer_sizes, arr_size, 5);
+	write_seq_runner(dev, &vfdev, false, GB(1),
+			 buffer_sizes, arr_size, 5);
 
-	// read_seq_runner(dev, &vfdev, true, MB(100),
-	// 		buffer_sizes, max_pow2-3, 1);
-	// read_seq_runner(dev, &vfdev, false, MB(100),
-	// 		buffer_sizes, max_pow2-3, 1);
+	read_seq_runner(dev, &vfdev, true, GB(1),
+			buffer_sizes, arr_size, 5);
+	read_seq_runner(dev, &vfdev, false, GB(1),
+			buffer_sizes, arr_size, 5);
 
-	write_randomly_runner(dev, &vfdev, true, MB(100),
-		buffer_sizes, max_pow2-3,
-		MB(0.01), MB(0.1), 1);
-	// write_randomly_runner(dev, &vfdev, false, MB(100),
-		// buffer_sizes, max_pow2-3,
-		// MB(0.01), MB(0.1), 1);
-	// read_randomly_runner(dev, &vfdev, true, MB(100),
-	// 	buffer_sizes, max_pow2-3,
-	// 	MB(0.01), MB(0.1), 1);
-	// read_randomly_runner(dev, &vfdev, false, MB(100),
-	// 	buffer_sizes, max_pow2-3,
-	// 	MB(0.01), MB(0.1), 1);
+	write_randomly_runner(dev, &vfdev, true, GB(1),
+		buffer_sizes, arr_size,
+		MB(0.01), MB(0.1), 5);
+	write_randomly_runner(dev, &vfdev, false, GB(1),
+		buffer_sizes, arr_size,
+		MB(0.01), MB(0.1), 5);
+	read_randomly_runner(dev, &vfdev, true, GB(1),
+		buffer_sizes, arr_size,
+		MB(0.01), MB(0.1), 5);
+	read_randomly_runner(dev, &vfdev, false, GB(1),
+		buffer_sizes, arr_size,
+		MB(0.01), MB(0.1), 5);
 }

@@ -461,7 +461,7 @@ free:
 /**
  * @brief
  *
- * If with_dax==true, a file called "100M_file" of size 100MB has to exist
+ * If with_dax==true, a file called "1G_file" of size 100GiB has to exist
  * in the root directory of the shared file system.
  *
  *
@@ -608,7 +608,7 @@ free:
 /**
  * @brief
  *
- * If with_dax==true, a file called "100M_file" of size 100MB has to exist
+ * If with_dax==true, a file called "1G_file" of size 100GiB has to exist
  * in the root directory of the shared file system.
  *
  * @param fusedev
