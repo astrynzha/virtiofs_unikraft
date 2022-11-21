@@ -71,13 +71,12 @@ void bench_test(void)
 		printf("%lu\n", amount[i]);
 	}
 
-
 	// create_files_runner(dev, amount, 17, 1);
 	// remove_files_runner(dev, amount, 17, 1);
 	// list_dir_runner(dev, amount, 17, 1);
 
 	int max_pow2 = 20;
-	int min_pow2 = 8;
+	int min_pow2 = 14;
 	int arr_size = max_pow2 - min_pow2 + 1;
 	BYTES buffer_sizes[arr_size];
 	printf("buffer sizes\n");
@@ -86,27 +85,26 @@ void bench_test(void)
 		printf("%llu\n", buffer_sizes[i - min_pow2]);
 	}
 
-
 	write_seq_runner(dev, &vfdev, true, GB(1),
-			 buffer_sizes, arr_size, 5);
+			 buffer_sizes, arr_size, 1);
 	write_seq_runner(dev, &vfdev, false, GB(1),
-			 buffer_sizes, arr_size, 5);
+			 buffer_sizes, arr_size, 1);
 
 	read_seq_runner(dev, &vfdev, true, GB(1),
-			buffer_sizes, arr_size, 5);
+			buffer_sizes, arr_size, 1);
 	read_seq_runner(dev, &vfdev, false, GB(1),
-			buffer_sizes, arr_size, 5);
+			buffer_sizes, arr_size, 1);
 
 	write_randomly_runner(dev, &vfdev, true, GB(1),
 		buffer_sizes, arr_size,
-		MB(0.01), MB(0.1), 5);
+		MB(0.01), MB(0.1), 1);
 	write_randomly_runner(dev, &vfdev, false, GB(1),
 		buffer_sizes, arr_size,
-		MB(0.01), MB(0.1), 5);
+		MB(0.01), MB(0.1), 1);
 	read_randomly_runner(dev, &vfdev, true, GB(1),
 		buffer_sizes, arr_size,
-		MB(0.01), MB(0.1), 5);
+		MB(0.01), MB(0.1), 1);
 	read_randomly_runner(dev, &vfdev, false, GB(1),
 		buffer_sizes, arr_size,
-		MB(0.01), MB(0.1), 5);
+		MB(0.01), MB(0.1), 1);
 }
