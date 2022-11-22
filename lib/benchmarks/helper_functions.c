@@ -205,9 +205,10 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names) {
  * @param[out] num_intervals
  */
 void slice_file(BYTES file_size, struct file_interval **intervals,
-		BYTES **interval_order, BYTES *num_intervals)
+		BYTES **interval_order, BYTES *num_intervals,
+		BYTES interval_len)
 {
-	BYTES interval_len = MB(1);
+	// BYTES interval_len = MB(1);
 	BYTES full_intervals = file_size / interval_len;
 	BYTES total_intervals;
 

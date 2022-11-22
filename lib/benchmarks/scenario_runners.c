@@ -474,7 +474,7 @@ free:
  * @param measurements
  */
 void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
+	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
 	int measurements)
 {
 	int rc = 0;
@@ -528,10 +528,15 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		}
 
 		BYTES buffer_size = buffer_size_arr[i];
+		BYTES bytes = bytes_arr[i];
 
 		printf("###########################\n");
-		printf("%lu/%lu. Measuring sequential write of %llu megabytes with a buffer of %lluB\n",
-		i+1, arr_size, B_TO_MB(bytes), buffer_size);
+		printf("%lu/%lu. Sequential write.\n\
+		DAX: %s,\n\
+		Megaytes: %llu,\n\
+		Buffer_size: %lluB\n",
+		i+1, arr_size, with_dax ? "true" : "false",
+		B_TO_MB(bytes), buffer_size);
 
 		__nanosec result;
 		__nanosec result_ms;
@@ -620,7 +625,7 @@ free:
  * @param measurements
  */
 void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
+	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
 	int measurements)
 {
 	int rc = 0;
@@ -667,10 +672,15 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		}
 
 		BYTES buffer_size = buffer_size_arr[i];
+		BYTES bytes = bytes_arr[i];
 
 		printf("###########################\n");
-		printf("%lu/%lu. Measuring sequential read of %llu megabytes with a buffer of %lluB\n",
-		i+1, arr_size, B_TO_MB(bytes), buffer_size);
+		printf("%lu/%lu. Sequential read.\n\
+		DAX: %s,\n\
+		Megaytes: %llu,\n\
+		Buffer_size: %lluB\n",
+		i+1, arr_size, with_dax ? "true" : "false",
+		B_TO_MB(bytes), buffer_size);
 
 		__nanosec result;
 		__nanosec result_ms;
@@ -742,8 +752,8 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 
 
 void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
-	BYTES lower_write_limit, BYTES upper_write_limit, int measurements)
+	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
+	BYTES *interval_len_arr, size_t arr_size, int measurements)
 {
 	int rc = 0;
 	fuse_file_context dc = {.is_dir = true, .mode = 0777,
@@ -793,10 +803,17 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		}
 
 		BYTES buffer_size = buffer_size_arr[i];
+		BYTES bytes = bytes_arr[i];
+		BYTES interval_len = interval_len_arr[i];
 
 		printf("###########################\n");
-		printf("%lu/%lu. Measuring random write of %llu megabytes with a buffer of %lluB\n",
-		i+1, arr_size, B_TO_MB(bytes), buffer_size);
+		printf("%lu/%lu. Random write.\n\
+		DAX: %s,\n\
+		Megaytes: %llu,\n\
+		Buffer_size: %lluB\n\
+		Interval_length: %llu\n",
+		i+1, arr_size, with_dax ? "true" : "false",
+		B_TO_MB(bytes), buffer_size, interval_len);
 
 		__nanosec result;
 		__nanosec result_ms;
@@ -809,12 +826,11 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 			if (with_dax) {
 				result = write_randomly_dax(fusedev, vfdev,
 					bytes, buffer_size,
-					lower_write_limit, upper_write_limit);
+					interval_len);
 
 			} else {
 				result = write_randomly_fuse(fusedev, bytes,
-					buffer_size, lower_write_limit,
-					upper_write_limit);
+					buffer_size, interval_len);
 			}
 
 			sprintf(measurement_text, "%lu\n", result);
@@ -872,8 +888,8 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 }
 
 void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES bytes, BYTES *buffer_size_arr, size_t arr_size,
-	BYTES lower_read_limit, BYTES upper_read_limit, int measurements)
+	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
+	BYTES *interval_len_arr, size_t arr_size, int measurements)
 {
 	int rc = 0;
 	fuse_file_context dc = {.is_dir = true, .mode = 0777,
@@ -922,10 +938,17 @@ void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		}
 
 		BYTES buffer_size = buffer_size_arr[i];
+		BYTES bytes = bytes_arr[i];
+		BYTES interval_len = interval_len_arr[i];
 
 		printf("###########################\n");
-		printf("%lu/%lu. Measuring random read of %llu megabytes with a buffer of %lluB\n",
-		i+1, arr_size, B_TO_MB(bytes), buffer_size);
+		printf("%lu/%lu. Random read.\n\
+		DAX: %s,\n\
+		Megaytes: %llu,\n\
+		Buffer_size: %lluB\n\
+		Interval_length: %llu\n",
+		i+1, arr_size, with_dax ? "true" : "false",
+		B_TO_MB(bytes), buffer_size, interval_len);
 
 		__nanosec result;
 		__nanosec result_ms;
@@ -936,12 +959,10 @@ void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 
 			result = with_dax ?
 				read_randomly_dax(fusedev, vfdev,
-					bytes, buffer_size, lower_read_limit,
-					upper_read_limit)
+					bytes, buffer_size, interval_len)
 					  :
 				read_randomly_fuse(fusedev, bytes,
-					buffer_size, lower_read_limit,
-					upper_read_limit);
+					buffer_size, interval_len);
 
 			sprintf(measurement_text, "%lu\n", result);
 			rc = uk_fuse_request_write(fusedev, measurements_fc.nodeid,

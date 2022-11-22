@@ -51,7 +51,8 @@ void read_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
 void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 		    BYTES buffer_size);
 void slice_file(BYTES file_size, struct file_interval **intervals,
-		BYTES **interval_order, BYTES *num_intervals);
+		BYTES **interval_order, BYTES *num_intervals,
+		BYTES interval_len);
 
 
 #endif /* HELPER_FUNCTIONS_H */

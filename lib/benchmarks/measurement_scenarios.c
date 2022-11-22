@@ -548,7 +548,7 @@ free:
  */
 __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 			      BYTES bytes, BYTES buffer_size,
-			      BYTES lower_write_limit, BYTES upper_write_limit)
+			      BYTES interval_len)
 {
 	__nanosec start, end;
 	int rc = 0;
@@ -563,7 +563,8 @@ __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 	BYTES num_intervals;
 
 	slice_file(bytes, &intervals,
-		&interval_order, &num_intervals);
+		&interval_order, &num_intervals,
+		interval_len);
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
@@ -655,8 +656,7 @@ out:
 
 __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 			     struct uk_vfdev *vfdev, BYTES bytes,
-			     BYTES buffer_size, BYTES lower_write_limit,
-			     BYTES upper_write_limit)
+			     BYTES buffer_size, BYTES interval_len)
 {
 	__nanosec start, end;
 	int rc = 0;
@@ -671,7 +671,7 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 	BYTES num_intervals;
 
 	slice_file(bytes, &intervals,
-		&interval_order, &num_intervals);
+		&interval_order, &num_intervals, interval_len);
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
@@ -943,7 +943,7 @@ free:
 
 __nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
 			     BYTES size, BYTES buffer_size,
-			     BYTES lower_read_limit, BYTES upper_read_limit)
+			     BYTES interval_len)
 {
 	__nanosec start, end;
 	int rc = 0;
@@ -958,7 +958,7 @@ __nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
 	BYTES num_intervals;
 
 	slice_file(size, &intervals,
-		&interval_order, &num_intervals);
+		&interval_order, &num_intervals, interval_len);
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
@@ -1042,8 +1042,7 @@ out:
 
 __nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
 			    struct uk_vfdev *vfdev, BYTES size,
-			    BYTES buffer_size, BYTES lower_read_limit,
-			    BYTES upper_read_limit)
+			    BYTES buffer_size, BYTES interval_len)
 {
 	__nanosec start, end;
 	int rc = 0;
@@ -1058,7 +1057,7 @@ __nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
 	BYTES num_intervals;
 
 	slice_file(size, &intervals,
-		&interval_order, &num_intervals);
+		&interval_order, &num_intervals, interval_len);
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
 		&file.nodeid);
