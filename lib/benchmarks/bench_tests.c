@@ -99,7 +99,7 @@ void bench_test(void)
 			bytes_arr_FUSE[i-min_pow2],
 			interval_len_arr[i-min_pow2]);
 	}
-	int measurements = 3;
+	int measurements = 5;
 
 	write_seq_runner(dev, &vfdev, true, bytes_arr_DAX,
 			 buffer_size_arr, arr_size, measurements);
