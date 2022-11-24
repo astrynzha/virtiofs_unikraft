@@ -192,6 +192,8 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names) {
 	}
 }
 
+static void _fisher_yates_modern(BYTES **interval_order, BYTES total_intervals);
+
 /**
  * @brief calculate the file intervals and the order, in which to read / write
  * them
@@ -220,8 +222,16 @@ void slice_file(BYTES file_size, struct file_interval **intervals,
 
 	*intervals = malloc(sizeof(struct file_interval)
 		* total_intervals);
+	if (!(*intervals)) {
+		uk_pr_err("malloc failed \n");
+		UK_CRASH("malloc failed\n");
+	}
 	*interval_order = malloc(sizeof(BYTES)
 		* total_intervals);
+	if (!(*interval_order)) {
+		uk_pr_err("malloc failed \n");
+		UK_CRASH("malloc failed\n");
+	}
 	if (total_intervals > full_intervals) {
 		((*intervals)[full_intervals]).off = interval_len * full_intervals;
 		((*intervals)[full_intervals]).len = file_size % interval_len;
@@ -232,21 +242,47 @@ void slice_file(BYTES file_size, struct file_interval **intervals,
 		((*intervals)[i]).len = interval_len;
 	}
 
-	char *bitmap = calloc(total_intervals, 1);
 
+	// for (BYTES i = 0; i < total_intervals; i++) {
+	// 	BYTES rand;
+
+	// 	do {
+	// 		getrandom(&rand,sizeof(BYTES), 0);
+	// 		rand = rand % total_intervals;
+	// 	} while (bitmap[rand]);
+
+	// 	(*interval_order)[i] = rand;
+	// 	bitmap[rand] = 1;
+	// }
 	for (BYTES i = 0; i < total_intervals; i++) {
-		BYTES rand;
-
-		do {
-			getrandom(&rand,sizeof(BYTES), 0);
-			rand = rand % total_intervals;
-		} while (bitmap[rand]);
-
-		(*interval_order)[i] = rand;
-		bitmap[rand] = 1;
+		(*interval_order)[i] = i;
 	}
 
-	*num_intervals = total_intervals;
+	_fisher_yates_modern(interval_order, total_intervals);
 
-	free(bitmap);
+	printf("Intervals shuffled!\n");
+
+	*num_intervals = total_intervals;
+}
+
+
+/**
+ * Fisher-Yates algorithm that uniformly shuffles an array.
+ */
+static void _fisher_yates_modern(BYTES **interval_order, BYTES total_intervals)
+{
+
+// 	for i from n−1 downto 1 do
+//      j ← random integer such that 0 ≤ j ≤ i
+//      exchange a[j] and a[i]
+	BYTES rand;
+	BYTES temp;
+
+	for (BYTES i = total_intervals - 1; i >=1; i--) {
+		getrandom(&rand,sizeof(BYTES), 0);
+		rand = rand % (i + 1);
+		temp = (*interval_order)[rand];
+		(*interval_order)[rand] = (*interval_order)[i];
+		(*interval_order)[i] = temp;
+	}
 }

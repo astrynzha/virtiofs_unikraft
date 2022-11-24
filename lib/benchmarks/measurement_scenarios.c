@@ -494,19 +494,156 @@ __nanosec write_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		file.fh, 0, bytes);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
-		return 0;
+		start = end = 0;
+		goto free;
 	}
 
 	rc = uk_fuse_request_release(fusedev, false,
 		file.nodeid, file.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_release has failed \n");
+		start = end = 0;
 		goto free;
 	}
 
 	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_forget has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+	free(buffer);
+	return end - start;
+
+free:
+	free(buffer);
+	return 0;
+}
+
+/**
+ * @brief
+ *
+ * Requires a file called "1G_file" of size 1GiB in the root directory of
+ * the shared file system.
+ *
+ * @param fusedev
+ * @param bytes
+ * @param buffer_size
+ * @param dir
+ * @return __nanosec
+ */
+__nanosec write_seq_dax_2(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+			BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "1G_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1,
+	};
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, '1', buffer_size);
+	buffer[buffer_size - 1] = '\0';
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
+	uint64_t dax_addr = vfdev->dax_addr;
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, bytes,
+		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		goto free;
+	}
+
+	__nanosec start, end;
+	/* Write for the first time */
+	printf("Running for the first time:\n");
+
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(((char *) dax_addr) + buffer_size*i, buffer,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(((char *) dax_addr) + buffer_size*iterations, buffer,
+			rest);
+	}
+
+	rc = uk_fuse_request_fsync(fusedev, false, file.nodeid,
+		file.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_fsync has failed\n");
+		goto free;
+	}
+
+	end = _clock();
+
+	__nanosec result_ms = nanosec_to_milisec(end - start);
+	printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+	printf("Running for the second time:\n");
+
+	/* Write for the second time */
+
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(((char *) dax_addr) + buffer_size*i, buffer,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(((char *) dax_addr) + buffer_size*iterations, buffer,
+			rest);
+	}
+
+	rc = uk_fuse_request_fsync(fusedev, false, file.nodeid,
+		file.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_fsync has failed\n");
+		goto free;
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, bytes);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		start = end = 0;
 		goto free;
 	}
 
@@ -775,6 +912,163 @@ out:
 }
 
 
+__nanosec write_randomly_dax_2(struct uk_fuse_dev *fusedev,
+			     struct uk_vfdev *vfdev, BYTES bytes,
+			     BYTES buffer_size, BYTES interval_len)
+{
+	__nanosec start, end;
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "1G_file",
+		.flags = O_WRONLY,
+		.parent_nodeid = 1,
+	};
+
+	struct file_interval *intervals;
+	BYTES *interval_order;
+	BYTES num_intervals;
+
+	slice_file(bytes, &intervals,
+		&interval_order, &num_intervals, interval_len);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		start = end = 0;
+		goto out;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		start = end = 0;
+		goto out;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, bytes,
+		FUSE_SETUPMAPPING_FLAG_WRITE, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		start = end = 0;
+		goto out;
+	}
+
+	BYTES off;
+	BYTES len;
+	char *buffer = malloc(buffer_size);
+	if (unlikely(!buffer)) {
+		uk_pr_err("malloc failed\n");
+		start = end = 0;
+		goto out;
+	}
+	memset(buffer, '1', buffer_size);
+	buffer[buffer_size - 1] = '\0';
+
+	/* Write for the first time */
+
+	printf("Running for the first time:\n");
+	start = _clock();
+
+	for (BYTES i = 0; i < num_intervals; i++) {
+		off = intervals[interval_order[i]].off;
+		len = intervals[interval_order[i]].len;
+
+		BYTES iterations = len / buffer_size;
+		BYTES rest = len % buffer_size;
+
+		for (BYTES j = 0; j < iterations; j++) {
+			memcpy((char *)vfdev->dax_addr + off
+				+ buffer_size * j,
+				buffer, buffer_size);
+		}
+		if (rest > 0) {
+			memcpy((char *)vfdev->dax_addr + off
+				+ buffer_size * iterations,
+				buffer, rest);
+		}
+	}
+
+	rc = uk_fuse_request_fsync(fusedev, false, file.nodeid,
+		file.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_fsync has failed\n");
+		start = end = 0;
+		goto out1;
+	}
+
+	end = _clock();
+
+	__nanosec result_ms = nanosec_to_milisec(end - start);
+	printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+	printf("Running for the second time:\n");
+
+	/* Write for the second time */
+
+	start = _clock();
+
+	for (BYTES i = 0; i < num_intervals; i++) {
+		off = intervals[interval_order[i]].off;
+		len = intervals[interval_order[i]].len;
+
+		BYTES iterations = len / buffer_size;
+		BYTES rest = len % buffer_size;
+
+		for (BYTES j = 0; j < iterations; j++) {
+			memcpy((char *)vfdev->dax_addr + off
+				+ buffer_size * j,
+				buffer, buffer_size);
+		}
+		if (rest > 0) {
+			memcpy((char *)vfdev->dax_addr + off
+				+ buffer_size * iterations,
+				buffer, rest);
+		}
+	}
+
+	rc = uk_fuse_request_fsync(fusedev, false, file.nodeid,
+		file.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_fsync has failed\n");
+		start = end = 0;
+		goto out1;
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, bytes);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = end = 0;
+		goto out1;
+	}
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			start = end = 0;
+			goto out1;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			start = end = 0;
+			goto out1;
+	}
+
+out1:
+	free(buffer);
+out:
+	free(intervals);
+	free(interval_order);
+	return end - start;
+}
+
+
+
 /*
     Measure sequential read of `bytes` bytes.
 */
@@ -916,7 +1210,8 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		file.fh, 0, bytes);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
-		return 0;
+		start = end = 0;
+		goto free;
 	}
 
 
@@ -924,12 +1219,124 @@ __nanosec read_seq_dax(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		file.nodeid, file.fh);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_release has failed \n");
+		start = end = 0;
 		goto free;
 	}
 
 	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
 	if (rc) {
 		uk_pr_err("uk_fuse_request_forget has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+	free(buffer);
+	return end - start;
+
+free:
+	free(buffer);
+	return 0;
+}
+
+
+__nanosec read_seq_dax_2(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
+		       BYTES bytes, BYTES buffer_size)
+{
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "1G_file",
+		.flags = O_RDONLY,
+		.parent_nodeid = 1
+	};
+	char *buffer = malloc(buffer_size);
+	if (buffer == NULL) {
+		uk_pr_err("malloc failed\n");
+		return 0;
+	}
+	memset(buffer, '1', buffer_size);
+	buffer[buffer_size - 1] = '\0';
+	BYTES iterations = bytes / buffer_size;
+	BYTES rest = bytes % buffer_size;
+	uint64_t dax_addr = vfdev->dax_addr;
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		goto free;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, bytes,
+		FUSE_SETUPMAPPING_FLAG_READ, 0);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		goto free;
+	}
+
+	__nanosec start, end;
+
+	/* Write for the first time */
+
+	printf("Running for the first time:\n");
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * i,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * iterations,
+			rest);
+	}
+
+	end = _clock();
+
+	__nanosec result_ms = nanosec_to_milisec(end - start);
+	printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+	printf("Running for the second time:\n");
+	/* Write for the second time */
+
+	start = _clock();
+
+	for (BYTES i = 0; i < iterations; i++) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * i,
+			buffer_size);
+	}
+	if (rest > 0) {
+		memcpy(buffer, ((char *) dax_addr) + buffer_size * iterations,
+			rest);
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, bytes);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_release has failed \n");
+		start = end = 0;
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		start = end = 0;
 		goto free;
 	}
 
@@ -1093,6 +1500,145 @@ __nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
 	}
 	memset(buffer, '1', buffer_size);
 	buffer[buffer_size - 1] = '\0';
+
+	start = _clock();
+
+	for (BYTES i = 0; i < num_intervals; i++) {
+		off = intervals[interval_order[i]].off;
+		len = intervals[interval_order[i]].len;
+
+		BYTES iterations = len / buffer_size;
+		BYTES rest = len % buffer_size;
+
+		for (BYTES j = 0; j < iterations; j++) {
+			memcpy(buffer, (char *)vfdev->dax_addr + off
+				+ buffer_size * j,
+				buffer_size);
+		}
+		if (rest > 0) {
+			memcpy(buffer, (char *)vfdev->dax_addr + off
+				+ buffer_size * iterations,
+				rest);
+		}
+	}
+
+	end = _clock();
+
+	rc = uk_fuse_request_removemapping_legacy(fusedev, file.nodeid,
+		file.fh, 0, size);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = end = 0;
+		goto out1;
+	}
+
+	rc = uk_fuse_request_release(fusedev, false,
+		file.nodeid, file.fh);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_release has failed \n");
+			start = end = 0;
+			goto out1;
+	}
+	rc = uk_fuse_request_forget(fusedev, file.nodeid, 1);
+	if (rc) {
+			uk_pr_err("uk_fuse_request_forget has failed \n");
+			start = end = 0;
+			goto out1;
+	}
+
+out1:
+	free(buffer);
+out:
+	free(intervals);
+	free(interval_order);
+	return end - start;
+}
+
+__nanosec read_randomly_dax_2(struct uk_fuse_dev *fusedev,
+			    struct uk_vfdev *vfdev, BYTES size,
+			    BYTES buffer_size, BYTES interval_len)
+{
+	__nanosec start, end;
+	int rc = 0;
+	fuse_file_context file = {
+		.is_dir = false, .name = "1G_file",
+		.flags = O_RDONLY,
+		.parent_nodeid = 1,
+	};
+
+	struct file_interval *intervals;
+	BYTES *interval_order;
+	BYTES num_intervals;
+
+	slice_file(size, &intervals,
+		&interval_order, &num_intervals, interval_len);
+
+	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
+		&file.nodeid);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+		start = end = 0;
+		goto out;
+	}
+	rc = uk_fuse_request_open(fusedev, false, file.nodeid,
+		file.flags, &file.fh);
+	if (rc) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		start = end = 0;
+		goto out;
+	}
+
+	rc = uk_fuse_request_setupmapping(fusedev, file.nodeid,
+		file.fh, 0, size,
+		FUSE_SETUPMAPPING_FLAG_READ, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_setupmapping has failed \n");
+		start = end = 0;
+		goto out;
+	}
+
+	BYTES off;
+	BYTES len;
+	char *buffer = malloc(buffer_size);
+	if (unlikely(!buffer)) {
+		uk_pr_err("malloc failed\n");
+		start = end = 0;
+		goto out;
+	}
+	memset(buffer, '1', buffer_size);
+	buffer[buffer_size - 1] = '\0';
+
+	/* Write for the first time */
+
+	printf("Running for the first time:\n");
+	start = _clock();
+
+	for (BYTES i = 0; i < num_intervals; i++) {
+		off = intervals[interval_order[i]].off;
+		len = intervals[interval_order[i]].len;
+
+		BYTES iterations = len / buffer_size;
+		BYTES rest = len % buffer_size;
+
+		for (BYTES j = 0; j < iterations; j++) {
+			memcpy(buffer, (char *)vfdev->dax_addr + off
+				+ buffer_size * j,
+				buffer_size);
+		}
+		if (rest > 0) {
+			memcpy(buffer, (char *)vfdev->dax_addr + off
+				+ buffer_size * iterations,
+				rest);
+		}
+	}
+
+	end = _clock();
+
+	__nanosec result_ms = nanosec_to_milisec(end - start);
+	printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
+	printf("Running for the second time:\n");
+
+	/* Write for the second time */
 
 	start = _clock();
 

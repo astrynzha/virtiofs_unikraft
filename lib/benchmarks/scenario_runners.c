@@ -474,7 +474,7 @@ free:
  * @param measurements
  */
 void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
+	enum dax dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
 	int measurements)
 {
 	int rc = 0;
@@ -492,7 +492,28 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	uint64_t results_offset = 0;
 
 
-	strcpy(dc.name, with_dax ? "write_seq_DAX" : "write_seq_FUSE");
+	char dax_mode[256];
+	switch (dax) {
+		case NO_DAX:
+			strcpy(dc.name, "write_seq_FUSE");
+			strcpy(dax_mode, "no");
+			break;
+		case DAX_FIRST_RUN:
+			strcpy(dc.name, "write_seq_DAX");
+			strcpy(dax_mode, "first run");
+			break;
+		case DAX_SECOND_RUN:
+			strcpy(dc.name, "write_seq_DAX_2");
+			strcpy(dax_mode, "second run");
+			break;
+		default:
+			printf("unkown DAX mode\n");
+			#ifdef __Unikraft__
+			UK_CRASH("Crashing...\n");
+			#elif __linux__
+			exit(0);
+			#endif
+	}
 	measurement_fcs = calloc(arr_size, sizeof(fuse_file_context));
 	if (!measurement_fcs) {
 		uk_pr_err("calloc failed");
@@ -535,7 +556,7 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		DAX: %s,\n\
 		Megaytes: %llu,\n\
 		Buffer_size: %lluB\n",
-		i+1, arr_size, with_dax ? "true" : "false",
+		i+1, arr_size, dax_mode,
 		B_TO_MB(bytes), buffer_size);
 
 		__nanosec result;
@@ -545,12 +566,26 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		for (int j = 0; j < measurements; j++) {
 			printf("Measurement %d/%d running...\n", j + 1, measurements);
 
-			if (with_dax) {
-				result = write_seq_dax(fusedev, vfdev, bytes,
-					buffer_size);
-			} else {
-				result = write_seq_fuse(fusedev, bytes, buffer_size,
+			switch (dax) {
+				case NO_DAX:
+					result = write_seq_fuse(fusedev, bytes, buffer_size,
 					dc.nodeid);
+					break;
+				case DAX_FIRST_RUN:
+					result = write_seq_dax(fusedev, vfdev, bytes,
+					buffer_size);
+					break;
+				case DAX_SECOND_RUN:
+					result = write_seq_dax_2(fusedev, vfdev, bytes,
+					buffer_size);
+					break;
+				default:
+					printf("unkown DAX mode\n");
+					#ifdef __Unikraft__
+					UK_CRASH("Crashing...\n");
+					#elif __linux__
+					exit(0);
+					#endif
 			}
 
 			sprintf(measurement_text, "%lu\n", result);
@@ -625,7 +660,7 @@ free:
  * @param measurements
  */
 void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
+	enum dax dax, BYTES *bytes_arr, BYTES *buffer_size_arr, size_t arr_size,
 	int measurements)
 {
 	int rc = 0;
@@ -642,7 +677,28 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	uint32_t bytes_transferred = 0;
 	uint64_t results_offset = 0;
 
-	strcpy(dc.name, with_dax ? "read_seq_DAX" : "read_seq_FUSE");
+	char dax_mode[256];
+	switch (dax) {
+		case NO_DAX:
+			strcpy(dc.name, "read_seq_FUSE");
+			strcpy(dax_mode, "no");
+			break;
+		case DAX_FIRST_RUN:
+			strcpy(dc.name, "read_seq_DAX");
+			strcpy(dax_mode, "first run");
+			break;
+		case DAX_SECOND_RUN:
+			strcpy(dc.name, "read_seq_DAX_2");
+			strcpy(dax_mode, "second run");
+			break;
+		default:
+			printf("unkown DAX mode\n");
+			#ifdef __Unikraft__
+			UK_CRASH("Crashing...\n");
+			#elif __linux__
+			exit(0);
+			#endif
+	}
 	rc = uk_fuse_request_mkdir(fusedev, 1, dc.name,
 		dc.mode, &dc.nodeid, &dc.nlookup);
 	if (rc) {
@@ -679,7 +735,7 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		DAX: %s,\n\
 		Megaytes: %llu,\n\
 		Buffer_size: %lluB\n",
-		i+1, arr_size, with_dax ? "true" : "false",
+		i+1, arr_size, dax_mode,
 		B_TO_MB(bytes), buffer_size);
 
 		__nanosec result;
@@ -689,11 +745,25 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		for (int j = 0; j < measurements; j++) {
 			printf("Measurement %d/%d running...\n", j + 1, measurements);
 
-			if (with_dax) {
-				result = read_seq_dax(fusedev, vfdev, bytes,
+			switch (dax) {
+				case NO_DAX:
+					result = read_seq_fuse(fusedev, bytes, buffer_size);
+					break;
+				case DAX_FIRST_RUN:
+					result = read_seq_dax(fusedev, vfdev, bytes,
 					buffer_size);
-			} else {
-				result = read_seq_fuse(fusedev, bytes, buffer_size);
+					break;
+				case DAX_SECOND_RUN:
+					result = read_seq_dax_2(fusedev, vfdev, bytes,
+					buffer_size);
+					break;
+				default:
+					printf("unkown DAX mode\n");
+					#ifdef __Unikraft__
+					UK_CRASH("Crashing...\n");
+					#elif __linux__
+					exit(0);
+					#endif
 			}
 
 			sprintf(measurement_text, "%lu\n", result);
@@ -752,7 +822,7 @@ void read_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 
 
 void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
+	enum dax dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
 	BYTES *interval_len_arr, size_t arr_size, int measurements)
 {
 	int rc = 0;
@@ -772,8 +842,28 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	uint64_t results_offset = 0;
 
 
-	// create a separate directory for this experiment
-	strcpy(dc.name, with_dax ? "write_rand_DAX" : "write_rand_FUSE");
+	char dax_mode[256];
+	switch (dax) {
+		case NO_DAX:
+			strcpy(dc.name, "write_rand_FUSE");
+			strcpy(dax_mode, "no");
+			break;
+		case DAX_FIRST_RUN:
+			strcpy(dc.name, "write_rand_DAX");
+			strcpy(dax_mode, "first run");
+			break;
+		case DAX_SECOND_RUN:
+			strcpy(dc.name, "write_rand_DAX_2");
+			strcpy(dax_mode, "second run");
+			break;
+		default:
+			printf("unkown DAX mode\n");
+			#ifdef __Unikraft__
+			UK_CRASH("Crashing...\n");
+			#elif __linux__
+			exit(0);
+			#endif
+	}
 	rc = uk_fuse_request_mkdir(fusedev, 1, dc.name,
 		dc.mode, &dc.nodeid, &dc.nlookup);
 	if (rc) {
@@ -812,7 +902,7 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		Megaytes: %llu,\n\
 		Buffer_size: %lluB\n\
 		Interval_length: %llu\n",
-		i+1, arr_size, with_dax ? "true" : "false",
+		i+1, arr_size, dax_mode,
 		B_TO_MB(bytes), buffer_size, interval_len);
 
 		__nanosec result;
@@ -822,15 +912,28 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		for (int i = 0; i < measurements; i++) {
 			printf("Measurement %d/%d running...\n", i + 1, measurements);
 
-			/* TODOFS: write_randomly_dax & write_randomly_fuse */
-			if (with_dax) {
-				result = write_randomly_dax(fusedev, vfdev,
+			switch (dax) {
+				case NO_DAX:
+					result = write_randomly_fuse(fusedev, bytes,
+					buffer_size, interval_len);
+					break;
+				case DAX_FIRST_RUN:
+					result = write_randomly_dax(fusedev, vfdev,
 					bytes, buffer_size,
 					interval_len);
-
-			} else {
-				result = write_randomly_fuse(fusedev, bytes,
-					buffer_size, interval_len);
+					break;
+				case DAX_SECOND_RUN:
+					result = write_randomly_dax_2(fusedev, vfdev,
+					bytes, buffer_size,
+					interval_len);
+					break;
+				default:
+					printf("unkown DAX mode\n");
+					#ifdef __Unikraft__
+					UK_CRASH("Crashing...\n");
+					#elif __linux__
+					exit(0);
+					#endif
 			}
 
 			sprintf(measurement_text, "%lu\n", result);
@@ -888,7 +991,7 @@ void write_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 }
 
 void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
-	bool with_dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
+	enum dax dax, BYTES *bytes_arr, BYTES *buffer_size_arr,
 	BYTES *interval_len_arr, size_t arr_size, int measurements)
 {
 	int rc = 0;
@@ -907,8 +1010,28 @@ void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 	uint32_t bytes_transferred = 0;
 	uint64_t results_offset = 0;
 
-	// create a separate directory for this experiment
-	strcpy(dc.name, with_dax ? "read_rand_DAX" : "read_rand_FUSE");
+	char dax_mode[256];
+	switch (dax) {
+		case NO_DAX:
+			strcpy(dc.name, "read_rand_FUSE");
+			strcpy(dax_mode, "no");
+			break;
+		case DAX_FIRST_RUN:
+			strcpy(dc.name, "read_rand_DAX");
+			strcpy(dax_mode, "first run");
+			break;
+		case DAX_SECOND_RUN:
+			strcpy(dc.name, "read_rand_DAX_2");
+			strcpy(dax_mode, "second run");
+			break;
+		default:
+			printf("unkown DAX mode\n");
+			#ifdef __Unikraft__
+			UK_CRASH("Crashing...\n");
+			#elif __linux__
+			exit(0);
+			#endif
+	}
 	rc = uk_fuse_request_mkdir(fusedev, 1, dc.name,
 		dc.mode, &dc.nodeid, &dc.nlookup);
 	if (rc) {
@@ -947,7 +1070,7 @@ void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		Megaytes: %llu,\n\
 		Buffer_size: %lluB\n\
 		Interval_length: %llu\n",
-		i+1, arr_size, with_dax ? "true" : "false",
+		i+1, arr_size, dax_mode,
 		B_TO_MB(bytes), buffer_size, interval_len);
 
 		__nanosec result;
@@ -957,12 +1080,27 @@ void read_randomly_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 		for (int i = 0; i < measurements; i++) {
 			printf("Measurement %d/%d running...\n", i + 1, measurements);
 
-			result = with_dax ?
-				read_randomly_dax(fusedev, vfdev,
-					bytes, buffer_size, interval_len)
-					  :
-				read_randomly_fuse(fusedev, bytes,
+			switch (dax) {
+				case NO_DAX:
+					result = read_randomly_fuse(fusedev, bytes,
 					buffer_size, interval_len);
+					break;
+				case DAX_FIRST_RUN:
+					result = read_randomly_dax(fusedev, vfdev,
+					bytes, buffer_size, interval_len);
+					break;
+				case DAX_SECOND_RUN:
+					result = read_randomly_dax_2(fusedev, vfdev,
+					bytes, buffer_size, interval_len);
+					break;
+				default:
+					printf("unkown DAX mode\n");
+					#ifdef __Unikraft__
+					UK_CRASH("Crashing...\n");
+					#elif __linux__
+					exit(0);
+					#endif
+			}
 
 			sprintf(measurement_text, "%lu\n", result);
 			rc = uk_fuse_request_write(fusedev, measurements_fc.nodeid,

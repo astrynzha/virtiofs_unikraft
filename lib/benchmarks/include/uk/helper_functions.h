@@ -31,6 +31,11 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names);
 #define B_TO_MB(n) ((BYTES) ((n) / 1024 / 1024))
 #define B_TO_GB(n) ((BYTES) ((n) / 1024 / 1024 / 1024))
 
+enum dax {
+	NO_DAX,
+	DAX_FIRST_RUN,
+	DAX_SECOND_RUN,
+};
 
 struct file_interval {
 	BYTES off;
