@@ -266,22 +266,11 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, int measureme
 		return 0;
 	}
 
-	// parent dir of the experiment directory
-	fuse_file_context pdc = {
-		.name = "bench_files"
-	};
 
-	rc = uk_fuse_request_lookup(fusedev, 1,
-		pdc.name, &pdc.nodeid);
-	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_request_lookup has failed \n");
-	}
-	// experiment directory name
 	fuse_file_context dc;
 	sprintf(dc.name, "%lu_m%d", file_amount, measurement);
 
-	// looking up & opening the experiment directory
-	rc = uk_fuse_request_lookup(fusedev, pdc.nodeid,
+	rc = uk_fuse_request_lookup(fusedev, 1,
 		dc.name, &dc.nodeid);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_lookup has failed \n");
@@ -314,18 +303,11 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, int measureme
 		goto free;
 	}
 
-	rc = uk_fuse_request_forget(fusedev, dc.nodeid, 1);
+	rc = uk_fuse_request_forget(fusedev, dc.nodeid, 0);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_forget has failed \n");
 		goto free;
 	}
-
-	rc = uk_fuse_request_forget(fusedev, pdc.nodeid, 1);
-	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_request_forget has failed \n");
-		goto free;
-	}
-
 
 	free(dirents);
 	return end - start;

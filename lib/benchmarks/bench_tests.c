@@ -63,20 +63,23 @@ void bench_test(void)
 
 	vfdev = uk_vf_connect();
 
-	int max_pow = 17;
-	FILES amount[max_pow];
+	int max_files = 17;
+	int min_files = 15;
+	int arr_size_files = max_files - min_files + 1;
+
+	FILES amount[arr_size_files];
+
 	printf("amount\n");
-	for (int i = 0; i < max_pow; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
-		amount[i] = bpow(2, i + 1);
-		printf("%lu\n", amount[i]);
+	for (int i = min_files; i < max_files + 1; i++) { // buffer_sizes = {16, 32, 64, ..., 2^max_pow}
+		amount[i-min_files] = bpow(2, i);
+		printf("%lu\n", amount[i-min_files]);
 	}
 
-
-	int measurements_files = 6;
+	int measurements_files = 20;
 
 	// create_files_runner(dev, amount, 17, measurements_files);
 	// remove_files_runner(dev, amount, 17, measurements_files);
-	list_dir_runner(dev, amount, 17, measurements_files);
+	list_dir_runner(dev, amount, arr_size_files, measurements_files);
 
 
 /*

@@ -319,7 +319,6 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 
 		FILES amount = amount_arr[i];
 
-
 		printf("###########################\n");
 		printf("%lu/%lu. Measuring listing %lu files\n", i+1, arr_size, amount);
 
@@ -331,6 +330,7 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		for (int j = 0; j < measurements; j++) {
 
 			printf("Measurement %d/%d running...\n", j + 1, measurements);
+
 
 			result = list_dir(fusedev, amount, j + 1);
 
@@ -388,6 +388,7 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			uk_pr_err("uk_fuse_request_release has failed \n");
 			goto free;
 	}
+	rc = uk_fuse_request_forget(fusedev, dc.nodeid, 0);
 
 free:
 	free(measurement_fcs);
