@@ -162,11 +162,18 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 	fuse_file_context dc;
 	sprintf(dc.name, "%lu_m%d", amount, measurement);
 
-	// looking up the experiment directory
+	// looking up & opening the experiment directory
 	rc = uk_fuse_request_lookup(fusedev, 1,
 		dc.name, &dc.nodeid);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_lookup has failed \n");
+	}
+
+	rc = uk_fuse_request_open(fusedev, true, dc.nodeid,
+		O_RDONLY, &dc.fh);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_open has failed \n");
+		goto free_fc;
 	}
 
 	// experiment file names
@@ -187,26 +194,17 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 		}
 	}
 
-	// rc = uk_fuse_request_fsync(fusedev, true,
-	// 	dc.nodeid, dc.fh, 0);
-	// if (unlikely(rc)) {
-	// 	uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
-	// 	start = 0;
-	// 	goto free_fn;
-	// }
-
 	// measuring the delition of `amount` files
 
 	start = _clock();
 
 	for (FILES i = 0; i < amount; i++) {
-		file_name = file_names + i * max_file_name_length;
-		rc = uk_fuse_request_unlink(fusedev, file_name,
+		rc = uk_fuse_request_unlink(fusedev, fc[i].name,
 			false, fc[i].nodeid,
-			fc[i].nlookup, dc.nodeid);
+			0, dc.nodeid);
 		if (unlikely(rc)) {
 			uk_pr_err("uk_fuse_request_unlink has failed \n");
-			goto free_fn;
+			goto free_fc;
 		}
 	}
 
@@ -215,7 +213,7 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
 		start = 0;
-		goto free_fn;
+		goto free_fc;
 	}
 
 	end = _clock();
@@ -224,13 +222,12 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 	if (rc) {
 		uk_pr_err("uk_fuse_request_release has failed \n");
 		start = end = 0;
-		goto free_fn;
+		goto free_fc;
 	}
-	rc = uk_fuse_request_unlink(fusedev, dc.name, true,
-		dc.nodeid, dc.nlookup, dc.parent_nodeid);
+	rc = uk_fuse_request_forget(fusedev, dc.nodeid, 0);
 	if (rc) {
-		uk_pr_err("uk_fuse_request_unlink has failed \n");
-		goto free_fn;
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		goto free_fc;
 	}
 
 	free(fc);

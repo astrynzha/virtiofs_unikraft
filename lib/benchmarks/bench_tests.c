@@ -75,8 +75,8 @@ void bench_test(void)
 	int measurements_files = 6;
 
 	// create_files_runner(dev, amount, 17, measurements_files);
-	remove_files_runner(dev, amount, 17, measurements_files);
-	// list_dir_runner(dev, amount, 17, measurements_files);
+	// remove_files_runner(dev, amount, 17, measurements_files);
+	list_dir_runner(dev, amount, 17, measurements_files);
 
 
 /*
