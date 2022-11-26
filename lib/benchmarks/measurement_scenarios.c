@@ -96,6 +96,14 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		}
 	}
 
+	rc = uk_fuse_request_fsync(fusedev, true,
+		dc.nodeid, dc.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = 0;
+		goto free_fn;
+	}
+
 	end = _clock();
 
 	// cleaning up: deleting all files
@@ -137,14 +145,11 @@ free_fc:
 
     Necessary files are created and deleted by the function.
 */
-__nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
+__nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
+		       int measurement) {
 	int rc = 0;
 	fuse_file_context *fc;
-	fuse_file_context dc = { .is_dir = true, .name = "remove_files",
-		.mode = 0777, .parent_nodeid = 1
-	};
 	__nanosec start = 0, end = 0;
-	char *file_name;
 
 
 	fc = calloc(amount, sizeof(fuse_file_context));
@@ -152,55 +157,43 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		uk_pr_err("calloc has failed \n");
 		return 0;
 	}
-	rc = uk_fuse_request_mkdir(fusedev, dc.parent_nodeid,
-		dc.name, 0777, &dc.nodeid, &dc.nlookup);
-	if (rc) {
-		uk_pr_err("uk_fuse_request_mkdir has failed \n");
-		goto free_fc;
+
+	// experiment directory name
+	fuse_file_context dc;
+	sprintf(dc.name, "%lu_m%d", amount, measurement);
+
+	// looking up the experiment directory
+	rc = uk_fuse_request_lookup(fusedev, 1,
+		dc.name, &dc.nodeid);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
 	}
-	rc = uk_fuse_request_open(fusedev, true, dc.nodeid,
-		O_RDWR, &dc.fh);
-	if (rc) {
-		uk_pr_err("uk_fuse_request_open (dir==true) has failed \n");
-		goto free_fc;
-	}
 
-	// initializing file names
+	// experiment file names
 
-	int max_file_name_length = 7 + DIGITS(amount - 1);
-	// 2D array
-	char *file_names = (char*) malloc(amount*max_file_name_length);
-	if (!file_names) {
-		uk_pr_err("malloc has failed \n");
-		goto free_fc;
-	}
-	init_filenames(amount, max_file_name_length, file_names);
-
-	// creating `amount` empty files
-
+	char fname[256];
 	for (FILES i = 0; i < amount; i++) {
-		file_name = file_names + i * max_file_name_length;
-		rc = uk_fuse_request_create(fusedev, dc.nodeid,
-			file_name, O_WRONLY | O_CREAT | O_EXCL,
-			S_IFREG | S_IRWXU | S_IRWXG | S_IRWXO,
-			&fc[i].nodeid, &fc[i].fh,
-			&fc[i].nlookup);
-		if (rc) {
-			uk_pr_err("uk_fuse_request_create has failed \n");
-			goto free_fn;
-		}
-		rc = uk_fuse_request_release(fusedev, false,
-			fc[i].nodeid, fc[i].fh);
-		if (rc) {
-			uk_pr_err("uk_fuse_request_release has failed \n");
-			goto free_fn;
+		sprintf(fname, "%lu", i);
+		strncpy(fc[i].name, fname, 256);
+	}
+
+
+	// looking up experiment files
+	for (FILES i = 0; i < amount; i++) {
+		rc = uk_fuse_request_lookup(fusedev, dc.nodeid,
+			fc[i].name, &fc[i].nodeid);
+		if (unlikely(rc)) {
+			uk_pr_err("uk_fuse_request_lookup has failed \n");
 		}
 	}
 
-	// flush FS buffers and free pagecaches
-	#ifdef __linux__
-	system("sync; echo 3 > /proc/sys/vm/drop_caches");
-	#endif
+	// rc = uk_fuse_request_fsync(fusedev, true,
+	// 	dc.nodeid, dc.fh, 0);
+	// if (unlikely(rc)) {
+	// 	uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+	// 	start = 0;
+	// 	goto free_fn;
+	// }
 
 	// measuring the delition of `amount` files
 
@@ -215,9 +208,14 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 			uk_pr_err("uk_fuse_request_unlink has failed \n");
 			goto free_fn;
 		}
-		#ifdef __linux__
-		sync();
-		#endif
+	}
+
+	rc = uk_fuse_request_fsync(fusedev, true,
+		dc.nodeid, dc.fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = 0;
+		goto free_fn;
 	}
 
 	end = _clock();
@@ -235,12 +233,9 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount) {
 		goto free_fn;
 	}
 
-	free(file_names);
 	free(fc);
 	return end - start;
 
-free_fn:
-	free(file_names);
 free_fc:
 	free(fc);
 	return 0;
@@ -267,7 +262,6 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 	uint64_t dir_fh;
 	struct fuse_dirent *dirents;
 	size_t num_dirents;
-	char str[NAME_MAX + 1];
 	__nanosec start = 0, end = 0;
 
 	dirents = calloc(file_amount, sizeof(struct fuse_dirent));
@@ -276,14 +270,22 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 		return 0;
 	}
 
-	start = _clock();
-
 	rc = uk_fuse_request_open(fusedev, true, dir,
 		O_RDONLY, &dir_fh);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_open has failed \n");
 		goto free;
 	}
+
+	rc = uk_fuse_request_fsync(fusedev, true,
+		dir, dir_fh, 0);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
+		start = 0;
+		goto free;
+	}
+
+	start = _clock();
 
 	rc = uk_fuse_request_readdirplus(fusedev, 4096,
 		dir, dir_fh, dirents, &num_dirents);
@@ -292,15 +294,7 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 		goto free;
 	}
 
-	#ifdef DEBUGMODE
-	FILES file_count = 0;
-	#endif
-	for (size_t i = 0; i < num_dirents; i++) {
-		strcpy(str, dirents[i].name);
-		#ifdef DEBUGMODE
-		file_count++;
-		#endif
-	}
+	end = _clock();
 
 	rc = uk_fuse_request_release(fusedev, true, dir, dir_fh);
 	if (unlikely(rc)) {
@@ -308,11 +302,7 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 		goto free;
 	}
 
-	end = _clock();
-
-	#ifdef DEBUGMODE
-	UK_ASSERT(file_amount + 2 == file_count);
-	#endif
+	UK_ASSERT(file_amount + 2 == num_dirents);
 
 	free(dirents);
 	return end - start;
@@ -328,8 +318,7 @@ free:
 
 	Write file is created and deleted by the function.
 */
-__nanosec write_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size,
-		    uint64_t dir)
+__nanosec write_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes, BYTES buffer_size)
 {
 	__nanosec start, end;
 	int rc = 0;
@@ -699,7 +688,7 @@ __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 	BYTES *interval_order;
 	BYTES num_intervals;
 
-	slice_file(bytes, &intervals,
+	slice_file_malloc(bytes, &intervals,
 		&interval_order, &num_intervals,
 		interval_len);
 
@@ -786,8 +775,8 @@ __nanosec write_randomly_fuse(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
 	free(interval_order);
+	free(intervals);
 	return end - start;
 }
 
@@ -906,8 +895,6 @@ __nanosec write_randomly_dax(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
-	free(interval_order);
 	return end - start;
 }
 
@@ -1062,8 +1049,6 @@ __nanosec write_randomly_dax_2(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
-	free(interval_order);
 	return end - start;
 }
 
@@ -1364,7 +1349,7 @@ __nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
 	BYTES *interval_order;
 	BYTES num_intervals;
 
-	slice_file(size, &intervals,
+	slice_file_malloc(size, &intervals,
 		&interval_order, &num_intervals, interval_len);
 
 	rc = uk_fuse_request_lookup(fusedev, 1, file.name,
@@ -1442,8 +1427,8 @@ __nanosec read_randomly_fuse(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
 	free(interval_order);
+	free(intervals);
 	return end - start;
 }
 
@@ -1549,8 +1534,6 @@ __nanosec read_randomly_dax(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
-	free(interval_order);
 	return end - start;
 }
 
@@ -1688,8 +1671,6 @@ __nanosec read_randomly_dax_2(struct uk_fuse_dev *fusedev,
 out1:
 	free(buffer);
 out:
-	free(intervals);
-	free(interval_order);
 	return end - start;
 }
 

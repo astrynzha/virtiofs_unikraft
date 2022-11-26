@@ -71,10 +71,15 @@ void bench_test(void)
 		printf("%lu\n", amount[i]);
 	}
 
-	// create_files_runner(dev, amount, 17, 1);
-	// remove_files_runner(dev, amount, 17, 1);
-	// list_dir_runner(dev, amount, 17, 1);
 
+	int measurements_files = 6;
+
+	// create_files_runner(dev, amount, 17, measurements_files);
+	remove_files_runner(dev, amount, 17, measurements_files);
+	// list_dir_runner(dev, amount, 17, measurements_files);
+
+
+/*
 	int max_pow2 = 20;
 	int min_pow2 = 4;
 	int arr_size = max_pow2 - min_pow2 + 1;
@@ -99,29 +104,29 @@ void bench_test(void)
 			bytes_arr_FUSE[i-min_pow2],
 			interval_len_arr[i-min_pow2]);
 	}
-	int measurements = 6;
+	int measurements = 3;
 
 	// write_seq_runner(dev, &vfdev, DAX_SECOND_RUN, bytes_arr_DAX,
 	// 		 buffer_size_arr, arr_size, measurements);
 	// write_seq_runner(dev, &vfdev, DAX_FIRST_RUN, bytes_arr_DAX,
 	// 		 buffer_size_arr, arr_size, measurements);
-	// write_seq_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
-	// 		 buffer_size_arr, arr_size, measurements);
+	write_seq_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
+			 buffer_size_arr, arr_size, measurements);
 
 	// read_seq_runner(dev, &vfdev, DAX_SECOND_RUN, bytes_arr_DAX,
 	// 		buffer_size_arr, arr_size, measurements);
 	// read_seq_runner(dev, &vfdev, DAX_FIRST_RUN, bytes_arr_DAX,
 	// 		buffer_size_arr, arr_size, measurements);
-	read_seq_runner(dev, &vfdev, NO_DAX, bytes_arr_DAX,
+	read_seq_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
 			buffer_size_arr, arr_size, measurements);
 
 	// write_randomly_runner(dev, &vfdev, DAX_SECOND_RUN, bytes_arr_DAX,
 	// 	buffer_size_arr, interval_len_arr, arr_size, measurements);
 	// write_randomly_runner(dev, &vfdev, DAX_FIRST_RUN, bytes_arr_DAX,
 	// 	buffer_size_arr, interval_len_arr, arr_size, measurements);
-	// write_randomly_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
-	// 	buffer_size_arr, interval_len_arr,
-	// 	arr_size, measurements);
+	write_randomly_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
+		buffer_size_arr, interval_len_arr,
+		arr_size, measurements);
 
 	// read_randomly_runner(dev, &vfdev, DAX_SECOND_RUN, bytes_arr_DAX,
 	// 	buffer_size_arr, interval_len_arr,
@@ -129,7 +134,9 @@ void bench_test(void)
 	// read_randomly_runner(dev, &vfdev, DAX_FIRST_RUN, bytes_arr_DAX,
 	// 	buffer_size_arr, interval_len_arr,
 	// 	arr_size, measurements);
-	// read_randomly_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
-	// 	buffer_size_arr, interval_len_arr,
-	// 	arr_size, measurements);
+	read_randomly_runner(dev, &vfdev, NO_DAX, bytes_arr_FUSE,
+		buffer_size_arr, interval_len_arr,
+		arr_size, measurements);
+
+*/
 }

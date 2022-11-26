@@ -1,5 +1,6 @@
 #include "uk/helper_functions.h"
 #include "sys/random.h"
+#include "uk/assert.h"
 #include "uk/fuse.h"
 #include "uk/fusedev_core.h"
 #include "uk/measurement_scenarios.h"
@@ -192,6 +193,55 @@ void init_filenames(FILES amount, int max_filename_length, char *file_names) {
 	}
 }
 
+void create_all_files(struct uk_fuse_dev *fusedev, FILES *amount, size_t len,
+		      int measurements)
+{
+	int rc;
+
+	for (size_t i = 0; i < len; i++) {
+
+		for (int j = 0; j < measurements; j++) {
+			/* creating a directory for the j+1th measurement
+			   of amount[i] files */
+			fuse_file_context dcontext = {.is_dir = true,
+				.mode = 0777,
+				.parent_nodeid = 1
+			};
+			sprintf(dcontext.name, "%lu_m%d",
+				amount[i], j + 1);
+			rc = uk_fuse_request_mkdir(fusedev, 1,
+				dcontext.name, dcontext.mode,
+				&dcontext.nodeid, &dcontext.nlookup);
+			if (rc) {
+				uk_pr_err("uk_fuse_request_mkdir has failed \n");
+				UK_CRASH("crashing...");
+			}
+
+			/* populating the directory with the amount[i] files */
+			for (FILES k = 0; k < amount[i]; k++) {
+				fuse_file_context fcontext = {.is_dir = false, .name = "results.csv",
+					.mode = 0777, .flags = O_WRONLY | O_CREAT | O_EXCL | O_TRUNC
+				};
+				sprintf(fcontext.name, "%lu", k);
+
+
+				rc = uk_fuse_request_create(fusedev, dcontext.nodeid, fcontext.name,
+				fcontext.flags, fcontext.mode,
+				&fcontext.nodeid, &fcontext.fh,
+				&fcontext.nlookup);
+				if (rc) {
+					uk_pr_err("uk_fuse_request_create has failed \n");
+					fprintf(stderr, "Error creating file number %lu.\n", i);
+					UK_CRASH("crashing...");
+				}
+				rc = uk_fuse_request_release(fusedev,
+					false, fcontext.nodeid,
+					fcontext.fh);
+			}
+		}
+	}
+}
+
 static void _fisher_yates_modern(BYTES **interval_order, BYTES total_intervals);
 
 /**
@@ -220,12 +270,78 @@ void slice_file(BYTES file_size, struct file_interval **intervals,
 		total_intervals = full_intervals;
 	}
 
+	*intervals = (struct file_interval*)(0x100000000UL);
+	// *intervals = malloc(sizeof(struct file_interval)
+	// 	* total_intervals);
+	// if (!(*intervals)) {
+	// 	uk_pr_err("malloc failed \n");
+	// 	UK_CRASH("malloc failed\n");
+	// }
+	*interval_order = (BYTES*)(((char *)(*intervals)) + (0x200000000UL));
+	// *interval_order = malloc(sizeof(BYTES)
+	// 	* total_intervals);
+	// if (!(*interval_order)) {
+	// 	uk_pr_err("malloc failed \n");
+	// 	UK_CRASH("malloc failed\n");
+	// }
+	if (total_intervals > full_intervals) {
+		((*intervals)[full_intervals]).off = interval_len * full_intervals;
+		((*intervals)[full_intervals]).len = file_size % interval_len;
+	}
+
+	for (BYTES i = 0; i < full_intervals; i++) {
+		((*intervals)[i]).off = interval_len * i;
+		((*intervals)[i]).len = interval_len;
+	}
+
+
+	for (BYTES i = 0; i < total_intervals; i++) {
+		(*interval_order)[i] = i;
+	}
+
+	printf("Shuffling intervals!\n");
+
+	_fisher_yates_modern(interval_order, total_intervals);
+
+	printf("Intervals shuffled!\n");
+
+	*num_intervals = total_intervals;
+}
+
+/**
+ * @brief calculate the file intervals and the order, in which to read / write
+ * them
+ *
+ * The caller is responsible for freeing the memory, allocated for the
+ * output variables.
+ *
+ * @param file_size
+ * @param[out] file_chunks
+ * @param[out] interval_order
+ * @param[out] num_intervals
+ */
+void slice_file_malloc(BYTES file_size, struct file_interval **intervals,
+		BYTES **interval_order, BYTES *num_intervals,
+		BYTES interval_len)
+{
+	// BYTES interval_len = MB(1);
+	BYTES full_intervals = file_size / interval_len;
+	BYTES total_intervals;
+
+	if (file_size % interval_len) {
+		total_intervals = full_intervals + 1;
+	} else {
+		total_intervals = full_intervals;
+	}
+
+	// *intervals = (struct file_interval*)(0x100000000UL);
 	*intervals = malloc(sizeof(struct file_interval)
 		* total_intervals);
 	if (!(*intervals)) {
 		uk_pr_err("malloc failed \n");
 		UK_CRASH("malloc failed\n");
 	}
+	// *interval_order = (BYTES*)(((char *)(*intervals)) + (0x200000000UL));
 	*interval_order = malloc(sizeof(BYTES)
 		* total_intervals);
 	if (!(*interval_order)) {
@@ -243,20 +359,11 @@ void slice_file(BYTES file_size, struct file_interval **intervals,
 	}
 
 
-	// for (BYTES i = 0; i < total_intervals; i++) {
-	// 	BYTES rand;
-
-	// 	do {
-	// 		getrandom(&rand,sizeof(BYTES), 0);
-	// 		rand = rand % total_intervals;
-	// 	} while (bitmap[rand]);
-
-	// 	(*interval_order)[i] = rand;
-	// 	bitmap[rand] = 1;
-	// }
 	for (BYTES i = 0; i < total_intervals; i++) {
 		(*interval_order)[i] = i;
 	}
+
+	printf("Shuffling intervals!\n");
 
 	_fisher_yates_modern(interval_order, total_intervals);
 

@@ -55,7 +55,12 @@ void read_bytes_fuse(struct uk_fuse_dev *fusedev, uint64_t nodeid,
 		     BYTES buffer_size);
 void read_bytes_dax(uint64_t dax_addr, uint64_t moffset, BYTES bytes,
 		    BYTES buffer_size);
+void create_all_files(struct uk_fuse_dev *fusedev, FILES *amount, size_t len,
+		      int measurements);
 void slice_file(BYTES file_size, struct file_interval **intervals,
+		BYTES **interval_order, BYTES *num_intervals,
+		BYTES interval_len);
+void slice_file_malloc(BYTES file_size, struct file_interval **intervals,
 		BYTES **interval_order, BYTES *num_intervals,
 		BYTES interval_len);
 

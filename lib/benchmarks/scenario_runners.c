@@ -209,7 +209,7 @@ void remove_files_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			printf("Measurement %d/%d running...\n", j + 1,
 				measurements);
 
-			result = remove_files(fusedev, amount);
+			result = remove_files(fusedev, amount, j + 1);
 
 			sprintf(measurement_text, "%lu\n", result);
 			rc = uk_fuse_request_write(fusedev,
@@ -330,29 +330,6 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 
 		FILES amount = amount_arr[i];
 
-		// initializing dummy files
-
-		int max_file_name_length = 7 + DIGITS(amount - 1);
-		char *file_names = (char*) malloc(amount*max_file_name_length); // implicit 2D array
-		init_filenames(amount, max_file_name_length, file_names);
-
-		dummy_fcs = calloc(amount, sizeof(fuse_file_context));
-		if (!dummy_fcs) {
-			uk_pr_err("calloc failed \n");
-			goto free;
-		}
-		for (FILES i = 0; i < amount; i++) {
-			rc = uk_fuse_request_create(fusedev, dc_ls.nodeid,
-				file_names + i*max_file_name_length,
-				O_WRONLY | O_CREAT | O_EXCL, 0777,
-				&dummy_fcs[i].nodeid, &dummy_fcs[i].fh,
-				&dummy_fcs[i].nlookup);
-			if (rc) {
-				uk_pr_err("uk_fuse_request_create has failed \n");
-				free(dummy_fcs);
-				goto free;
-			}
-		}
 
 		printf("###########################\n");
 		printf("%lu/%lu. Measuring listing %lu files\n", i+1, arr_size, amount);
@@ -363,6 +340,33 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 
 		// measuring 'measurements' times the listing of 'file_amount' files takes
 		for (int j = 0; j < measurements; j++) {
+
+			// initializing dummy files
+
+			int max_file_name_length = 7 + DIGITS(amount - 1);
+			char *file_names = (char*) malloc(amount*max_file_name_length); // implicit 2D array
+			init_filenames(amount, max_file_name_length, file_names);
+
+			dummy_fcs = calloc(amount, sizeof(fuse_file_context));
+			if (!dummy_fcs) {
+				uk_pr_err("calloc failed \n");
+				goto free;
+			}
+			for (FILES i = 0; i < amount; i++) {
+				rc = uk_fuse_request_create(fusedev, dc_ls.nodeid,
+					file_names + i*max_file_name_length,
+					O_WRONLY | O_CREAT | O_EXCL, 0777,
+					&dummy_fcs[i].nodeid, &dummy_fcs[i].fh,
+					&dummy_fcs[i].nlookup);
+				if (rc) {
+					uk_pr_err("uk_fuse_request_create has failed \n");
+					free(dummy_fcs);
+					goto free;
+				}
+			}
+
+			// done initializing
+
 			#ifdef __linux__
 			system("sync; echo 3 > /proc/sys/vm/drop_caches");
 			#endif
@@ -389,6 +393,22 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			printf("Result: %lums %.3fs\n", result_ms, (double) result_ms / 1000);
 
 			total += result;
+
+			// deleting all created files and directories
+
+			for (FILES i = 0; i < amount; i++) {
+				rc = uk_fuse_request_unlink(fusedev,
+					file_names + i*max_file_name_length,
+					false, dummy_fcs[i].nodeid,
+					dummy_fcs[i].nlookup,
+					dc_ls.nodeid);
+				if (rc) {
+					uk_pr_err("uk_fuse_request_unlink has failed \n");
+					free(dummy_fcs);
+					goto free;
+				}
+			}
+			free(dummy_fcs);
 		}
 		meas_file_offset = 0;
 
@@ -400,7 +420,6 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			results_offset, &bytes_transferred);
 		if (rc) {
 			uk_pr_err("uk_fuse_request_write has failed \n");
-			free(dummy_fcs);
 			goto free;
 		}
 		results_offset += bytes_transferred;
@@ -411,20 +430,6 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 		printf("%d measurements successfully conducted\n", measurements);
 		printf("Listing %lu files took on average: %lums %.3fs \n", amount, total_ms, (double) total_ms / 1000);
 
-		// deleting all created files and directories
-
-		for (FILES i = 0; i < amount; i++) {
-			rc = uk_fuse_request_unlink(fusedev,
-				file_names + i*max_file_name_length,
-				false, dummy_fcs[i].nodeid,
-				dummy_fcs[i].nlookup,
-				dc_ls.nodeid);
-			if (rc) {
-				uk_pr_err("uk_fuse_request_unlink has failed \n");
-				free(dummy_fcs);
-				goto free;
-			}
-		}
 		rc = uk_fuse_request_unlink(fusedev,
 				dc_ls.name,
 				true, dc_ls.nodeid,
@@ -432,7 +437,6 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 				dc.nodeid);
 		if (rc) {
 			uk_pr_err("uk_fuse_request_unlink has failed \n");
-			free(dummy_fcs);
 			goto free;
 		}
 
@@ -440,11 +444,9 @@ void list_dir_runner(struct uk_fuse_dev *fusedev, FILES *amount_arr,
 			measurement_fcs[i].nodeid, measurement_fcs[i].fh);
 		if (rc) {
 			uk_pr_err("uk_fuse_request_release has failed \n");
-			free(dummy_fcs);
 			goto free;
 		}
 
-		free(dummy_fcs);
 	}
 
 	rc = uk_fuse_request_release(fusedev, false,
@@ -568,8 +570,7 @@ void write_seq_runner(struct uk_fuse_dev *fusedev, struct uk_vfdev *vfdev,
 
 			switch (dax) {
 				case NO_DAX:
-					result = write_seq_fuse(fusedev, bytes, buffer_size,
-					dc.nodeid);
+					result = write_seq_fuse(fusedev, bytes, buffer_size);
 					break;
 				case DAX_FIRST_RUN:
 					result = write_seq_dax(fusedev, vfdev, bytes,
