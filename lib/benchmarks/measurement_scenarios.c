@@ -254,9 +254,8 @@ free_fc:
  * @param parent nodeid of the directory, where the files are located
  * @return __nanosec
  */
-__nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir) {
+__nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, int measurement) {
 	int rc = 0;
-	uint64_t dir_fh;
 	struct fuse_dirent *dirents;
 	size_t num_dirents;
 	__nanosec start = 0, end = 0;
@@ -267,25 +266,38 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 		return 0;
 	}
 
-	rc = uk_fuse_request_open(fusedev, true, dir,
-		O_RDONLY, &dir_fh);
+	// parent dir of the experiment directory
+	fuse_file_context pdc = {
+		.name = "bench_files"
+	};
+
+	rc = uk_fuse_request_lookup(fusedev, 1,
+		pdc.name, &pdc.nodeid);
 	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_request_open has failed \n");
-		goto free;
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
+	}
+	// experiment directory name
+	fuse_file_context dc;
+	sprintf(dc.name, "%lu_m%d", file_amount, measurement);
+
+	// looking up & opening the experiment directory
+	rc = uk_fuse_request_lookup(fusedev, pdc.nodeid,
+		dc.name, &dc.nodeid);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_lookup has failed \n");
 	}
 
-	rc = uk_fuse_request_fsync(fusedev, true,
-		dir, dir_fh, 0);
+	rc = uk_fuse_request_open(fusedev, true, dc.nodeid,
+		O_RDONLY, &dc.fh);
 	if (unlikely(rc)) {
-		uk_pr_err("uk_fuse_request_removemapping_legacy has failed \n");
-		start = 0;
+		uk_pr_err("uk_fuse_request_open has failed \n");
 		goto free;
 	}
 
 	start = _clock();
 
 	rc = uk_fuse_request_readdirplus(fusedev, 4096,
-		dir, dir_fh, dirents, &num_dirents);
+		dc.nodeid, dc.fh, dirents, &num_dirents);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_readdirplus has failed \n");
 		goto free;
@@ -293,13 +305,27 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, uint64_t dir)
 
 	end = _clock();
 
-	rc = uk_fuse_request_release(fusedev, true, dir, dir_fh);
+	UK_ASSERT(file_amount + 2 == num_dirents);
+
+	rc = uk_fuse_request_release(fusedev, true,
+		dc.nodeid, dc.fh);
 	if (unlikely(rc)) {
 		uk_pr_err("uk_fuse_request_release has failed \n");
 		goto free;
 	}
 
-	UK_ASSERT(file_amount + 2 == num_dirents);
+	rc = uk_fuse_request_forget(fusedev, dc.nodeid, 1);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		goto free;
+	}
+
+	rc = uk_fuse_request_forget(fusedev, pdc.nodeid, 1);
+	if (unlikely(rc)) {
+		uk_pr_err("uk_fuse_request_forget has failed \n");
+		goto free;
+	}
+
 
 	free(dirents);
 	return end - start;

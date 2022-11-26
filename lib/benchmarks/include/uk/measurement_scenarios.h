@@ -15,7 +15,7 @@ __nanosec create_files(struct uk_fuse_dev *fusedev, FILES amount);
 __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 		       int measurement);
 __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount,
-		   uint64_t parent);
+		   int measurement);
 
 
 __nanosec write_seq_fuse(struct uk_fuse_dev *fusedev, BYTES bytes,
