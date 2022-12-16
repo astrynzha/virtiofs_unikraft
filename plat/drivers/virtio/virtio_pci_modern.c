@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Authors: Andrii Strynzha <a.strynzha@gmail.com>,
-	    Sharan Santhanam <sharan.santhanam@neclab.eu>
+ *	    Sharan Santhanam <sharan.santhanam@neclab.eu>
  *
  * Copyright (c) 2018, NEC Europe Ltd., NEC Corporation. All rights reserved.
  * Copyright (c) 2019, Karlsruhe Institute of Technology (KIT).
@@ -58,6 +58,11 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/*
+ * Taken and adopted from https://github.com/freebsd/freebsd-src
+ * sys/dev/virtio/pci/virtio_pci_modern.c
+ * Commit: 2c2ef67
  */
 
 /* Driver for the modern VirtIO PCI interface. */

@@ -64,7 +64,7 @@ void bench_test(void)
 	vfdev = uk_vf_connect();
 
 	int max_files = 17;
-	int min_files = 15;
+	int min_files = 1;
 	int arr_size_files = max_files - min_files + 1;
 
 	FILES amount[arr_size_files];
@@ -75,7 +75,7 @@ void bench_test(void)
 		printf("%lu\n", amount[i-min_files]);
 	}
 
-	int measurements_files = 20;
+	int measurements_files = 6;
 
 	// create_files_runner(dev, amount, 17, measurements_files);
 	// remove_files_runner(dev, amount, 17, measurements_files);

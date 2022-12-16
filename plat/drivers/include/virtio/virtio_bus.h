@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Authors: Sharan Santhanam <sharan.santhanam@neclab.eu>
+ * 	    Andrii Strynzha  <a.strynzha@gmail.com>
  *
  * Copyright (c) 2018, NEC Europe Ltd., NEC Corporation. All rights reserved.
  *

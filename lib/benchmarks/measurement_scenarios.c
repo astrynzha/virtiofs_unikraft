@@ -194,7 +194,7 @@ __nanosec remove_files(struct uk_fuse_dev *fusedev, FILES amount,
 		}
 	}
 
-	// measuring the delition of `amount` files
+	// measuring the deletion of `amount` files
 
 	start = _clock();
 
@@ -266,6 +266,9 @@ __nanosec list_dir(struct uk_fuse_dev *fusedev, FILES file_amount, int measureme
 		return 0;
 	}
 
+	if (file_amount == 131072) {
+		uk_pr_info("hi\n");
+	}
 
 	fuse_file_context dc;
 	sprintf(dc.name, "%lu_m%d", file_amount, measurement);

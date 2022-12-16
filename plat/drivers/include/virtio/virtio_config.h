@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
  * Authors: Sharan Santhanam <sharan.santhanam@neclab.eu>
+ * 	    Andrii Strynzha  <a.strynzha@gmail.com>
  *
  * Copyright (c) 2018, NEC Europe Ltd., NEC Corporation. All rights reserved.
  *
@@ -58,6 +59,13 @@
  *
  * $FreeBSD$
  */
+/**
+ * Parts taken and adapted from FreeBSD virtio_config.h
+ * https://github.com/freebsd/freebsd-src
+ * sys/dev/virtio/virtio_config.h
+ * Commit-id: 2c2ef67
+ */
+
 
 #ifndef __PLAT_DRV_VIRTIO_CONFIG_H
 #define __PLAT_DRV_VIRTIO_CONFIG_H

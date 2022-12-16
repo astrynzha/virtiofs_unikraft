@@ -221,7 +221,7 @@ struct uk_9pdev *uk_9pdev_connect(const struct uk_9pdev_trans *trans,
 
 	dev = uk_calloc(a, 1, sizeof(*dev));
 	if (dev == NULL) {
-		rc = -ENOMEM;
+	rc = -ENOMEM;
 		goto out;
 	}
 

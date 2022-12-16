@@ -289,7 +289,7 @@ static int uk_9pfs_create_generic(struct vnode *dvp, char *name, mode_t mode)
 	if (strlen(name) > NAME_MAX)
 		return ENAMETOOLONG;
 
-	/* Clone parent (A.S.: directory) fid. */
+	/* Clone parent fid. */
 	fid = uk_9p_walk(dev, UK_9PFS_VFID(dvp), NULL);
 
 	rc = uk_9p_create(dev, fid, name, uk_9pfs_perm_from_posix_mode(mode),

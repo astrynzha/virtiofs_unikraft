@@ -153,8 +153,7 @@ void _pci_register_driver(struct pci_driver *drv)
 }
 
 
-/**
- * Register this bus driver to libukbus:
+/* Register this bus driver to libukbus:
  */
 static struct pci_bus_handler ph = {
 	.b.init = pci_init,
