@@ -40,7 +40,7 @@ Furthermore, additional functionality for scanning of PCI capability lists has b
 > For a more in-depth explanation and analysis, see the thesis paper [here](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link).
 
 # Results (Performance Improvement)
-We have implemented a custom set of [benchmarks](https://github.com/astrynzha/unikraft_9p_measure) for common file-system operations to evaluate the virtiofs performance. These operations are: sequential/random **read** and **write**; file **creation**, **deletion** and directory **listing**.
+We have implemented a custom set of benchmarks ([here](https://github.com/astrynzha/unikraft_9p_measure) and in this repo at ``lib/benchmarks/``) for common file-system operations to evaluate the virtiofs performance. These operations are: sequential/random **read** and **write**; file **creation**, **deletion** and directory **listing**.
 
 With these benchmarks, we have measured the speed of our virtiofs implementation and compared it against the 9pfs file-system (it is a virtiofs alternative that had previously been implemented in Unikraft) and the native Linux host (here, the file operations have been measured on the Linux host directly rather than from the guest through virtiofs/9pfs). Virtiofs has two ways of performing the read and write operations - 'FUSE' and 'DAX' (in the plots).
 
