@@ -29,6 +29,9 @@ Furthermore, additional functionality for scanning of PCI capability lists has b
 Since the integration into the VFS (``libvirtiofs``, Figure 1) has not been implemented yet, we could not use existin benchmark applications. Therefore, we implemented a custom set of benchmarks for common file-system operations to evaluate the virtiofs performance. The benchmark code and results can be found in [this](https://github.com/astrynzha/unikraft_9p_measure) repo. 
 
 ___
-## More about Unikraft
-- [Unikraft's Github Repo](https://github.com/unikraft/unikraft)
-- [Unikraft's Official Website](https://unikraft.io/)
+## Resources
+- [Thesis Paper](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link)
+- [Benchmarks](https://github.com/astrynzha/unikraft_9p_measure)
+- [Unikraft Github Repo](https://github.com/unikraft/unikraft)
+- [Unikraft Official Website](https://unikraft.io/)
+- [Virtiofs Official Website](https://virtio-fs.gitlab.io/)
