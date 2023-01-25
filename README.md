@@ -5,14 +5,14 @@ The architecture of the kernel layer is as follows:
 <br>
 <img src="https://user-images.githubusercontent.com/48807494/214492146-06c6f749-d3f3-499f-b375-eb0187907195.svg" width="700">
 <br>
-*Figure 1: red - components of the ``virtiofs`` kernel layer. Blue - components that existed previously.*
+*Figure 1: red - components of the virtiofs kernel layer. Blue - components that existed previously.*
 
 
-As part of the thesis the *virtiofs driver* (``plat/drivers/virtio/virtio_fs.c``) and the *ukfuse* (``lib/ukfuse/``) components have been implemented (see Figure 1).
+As part of the thesis the ``virtiofs driver`` (``plat/drivers/virtio/virtio_fs.c``) and the ``ukfuse`` (``lib/ukfuse/``) components have been implemented (see Figure 1).
 
 > For a more in-depth explanation and analysis, see the thesis paper [here](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link).
 
-The second major part of the work has been an upgrade of the *virtio subsystem* (Figure 1) to support the modern virtio standard for PCI devices, which is what virtiofs is presented by the hypervisor and seen by Unikraft.
+The second major part of the work has been an upgrade of the ``virtio subsystem`` (Figure 1) to support the modern virtio standard for PCI devices, which is what virtiofs is presented by the hypervisor and seen by Unikraft.
 
 The architectural diagram for these changes is as follows:
 <br>
