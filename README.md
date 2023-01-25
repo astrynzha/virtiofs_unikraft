@@ -1,6 +1,8 @@
 # Virtiofs Implementation in Unikraft
 This is a fork of the [Unikraft](https://github.com/unikraft/unikraft) OS with an implemented kernel layer for the [virtiofs](https://virtio-fs.gitlab.io/) shared-file system.
 
+## Virtiofs Kernel Layer
+
 The architecture of the kernel layer is as follows:
 <br>
 <img src="https://user-images.githubusercontent.com/48807494/214492146-06c6f749-d3f3-499f-b375-eb0187907195.svg" width="700">
@@ -11,6 +13,8 @@ The architecture of the kernel layer is as follows:
 As part of the thesis the ``virtiofs driver`` (``plat/drivers/virtio/virtio_fs.c``) and the ``ukfuse`` (``lib/ukfuse/``) components have been implemented (see Figure 1).
 
 > For a more in-depth explanation and analysis, see the thesis paper [here](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link).
+
+## Virtiofs Subsystem Upgrade
 
 The second major part of the work has been an upgrade of the ``virtio subsystem`` (Figure 1) to support the modern virtio standard for PCI devices, which is what virtiofs is presented as by the hypervisor and seen by Unikraft.
 
@@ -29,7 +33,7 @@ Furthermore, additional functionality for scanning of PCI capability lists has b
 Since the integration into the VFS (``libvirtiofs``, Figure 1) has not been implemented yet, we could not use existin benchmark applications. Therefore, we implemented a custom set of benchmarks for common file-system operations to evaluate the virtiofs performance. The benchmark code and results can be found in [this](https://github.com/astrynzha/unikraft_9p_measure) repo. 
 
 ___
-## Resources
+### Resources
 - [Thesis Paper](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link)
 - [Benchmarks](https://github.com/astrynzha/unikraft_9p_measure)
 - [Unikraft Github Repo](https://github.com/unikraft/unikraft)
