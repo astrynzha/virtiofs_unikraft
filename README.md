@@ -40,9 +40,9 @@ Furthermore, additional functionality for scanning of PCI capability lists has b
 > For a more in-depth explanation and analysis, see the thesis paper [here](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link).
 
 # Results (Performance Improvement)
-We implemented a custom set of [benchmarks](https://github.com/astrynzha/unikraft_9p_measure) for common file-system operations to evaluate the virtiofs performance. They measure the speed of common file-system operations: sequential/random **read** and **write**; file **creation**, **deletion** and directory **listing**.
+We have implemented a custom set of [benchmarks](https://github.com/astrynzha/unikraft_9p_measure) for common file-system operations to evaluate the virtiofs performance. These operations are: sequential/random **read** and **write**; file **creation**, **deletion** and directory **listing**.
 
-With these benchmarks, we have measured the speed of our virtiofs implementation and compared it against 9pfs file-system (a virtiofs alternative that had previously been implemented in Unikraft) and the native Linux host (here the file operations have been measured on the Linux host directly rather than from the guest through virtiofs/9pfs).
+With these benchmarks, we have measured the speed of our virtiofs implementation and compared it against the 9pfs file-system (it is a virtiofs alternative that had previously been implemented in Unikraft) and the native Linux host (here, the file operations have been measured on the Linux host directly rather than from the guest through virtiofs/9pfs). Virtiofs has two ways of performing the read and write operations - 'FUSE' and 'DAX' (in the plots).
 
 The results are as follows.
 
@@ -51,7 +51,7 @@ Read:
 <img src="https://user-images.githubusercontent.com/48807494/214696865-b30e1ba9-ae38-4c66-a57b-5735642121f3.svg" width="1000">
 <br>
 
-For reads and writes the 'buffer sizes' on the X axis is the amount of data we have given to each POSIX `read` or `write` request. The less data we give to each request, the larger the overall number of reqeusts. This drives down the performance because each request entails an expensive guest-host context switch.
+For reads and writes the 'buffer sizes' on the X axis is the amount of data we gave to each POSIX `read` or `write` request. The less data we give to each request, the larger the overall number of reqeusts. This drives down the performance because each request entails an expensive guest-host context switch.
 
 Write:
 <br>
@@ -65,13 +65,13 @@ Create/Remove/List:
 <br>
 
 
-The main takeaways are:
-- Virtiofs with the DAX feature activated is significantly faster than 9pfs for buffer sizes < 128 KiB.
+#### The main takeaways are:
+- Virtiofs through DAX is significantly faster than 9pfs for buffer sizes < 128 KiB.
   - For example, with 4 KiB buffers virtiofs is faster than 9pfs
     - ~17 times for sequential reads (from 73 MiB/s to 1287 MiB/s).
     - ~106 times for sequential writes (from 12 MiB/s to 947 MiB/s).
 - Virtiofs with DAX is faster than the native Linux for smaller buffers
-  - This is only due to the fact that the guest is a unikernel, where system calls have less overhead than in a conventional OS like the host's Linux.
+  - This is only due to the fact that the guest is a unikernel, where system calls (fs operations) have less overhead than in a conventional OS like the host's Linux.
 - 9pfs is to prefer for:
   - removing operations.
   - reading with buffers > 128 KiB.
@@ -81,7 +81,7 @@ The main takeaways are:
 ___
 ### Resources
 - [Thesis Paper](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link)
-- [Benchmarks](https://github.com/astrynzha/unikraft_9p_measure)
+- [Custom Benchmarks Used to Measure the Results](https://github.com/astrynzha/unikraft_9p_measure)
 - [Unikraft Github Repo](https://github.com/unikraft/unikraft)
 - [Unikraft Official Website](https://unikraft.io/)
 - [Virtiofs Official Website](https://virtio-fs.gitlab.io/)
