@@ -77,7 +77,7 @@ Create/Remove/List:
   - reading with buffers > 128 KiB.
 - In all other cases virtiofs provides better performance.
 
-
+> For a more in-depth analysis and discussion of the result, see the thesis paper [here](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link).
 ___
 ### Resources
 - [Thesis Paper](https://drive.google.com/file/d/1453lly-Q2c3RjfbIDkTUd-Knvk4T6n8k/view?usp=share_link)
